@@ -499,15 +499,15 @@ def pull_feeds() -> List[Article]:
 # ------------- DB Helpers -------------
 def get_published_topics(cursor, target_topic_id: Optional[int] = None) -> List[Dict]:
     if target_topic_id:
-        cursor.execute("SELECT * FROM topics WHERE id=%s AND status='published' LIMIT 1", (target_topic_id,))
+        cursor.execute("SELECT * FROM tn_topic WHERE id=%s AND status='published' LIMIT 1", (target_topic_id,))
         rows = cursor.fetchall()
     else:
-        cursor.execute("SELECT * FROM topics WHERE status='published'")
+        cursor.execute("SELECT * FROM tn_topic WHERE status='published'")
         rows = cursor.fetchall()
     return rows
 
 def get_existing_urls_for_topic(cursor, topic_id: int) -> tuple[set, set]:
-    cursor.execute("SELECT url, status FROM articles WHERE topic_id=%s", (topic_id,))
+    cursor.execute("SELECT url, status FROM tn_article WHERE topic_id=%s", (topic_id,))
     rows = cursor.fetchall()
     all_urls: set[str] = set()
     blocked_urls: set[str] = set()
@@ -527,7 +527,7 @@ def get_existing_urls_for_topic(cursor, topic_id: int) -> tuple[set, set]:
 def insert_article(cursor, topic_id: int, a: Article, display_order: int = 0):
     cursor.execute(
         """
-        INSERT IGNORE INTO articles
+        INSERT IGNORE INTO tn_article
         (topic_id, source, source_domain, side, title, url, published_at, similarity, status, rss_desc, thumbnail_url, is_featured, display_order)
         VALUES (%s,%s,%s,%s,%s,%s,%s,%s,'suggested',%s,%s,0,%s)
         """,
@@ -538,7 +538,7 @@ def insert_article(cursor, topic_id: int, a: Article, display_order: int = 0):
     )
 
 def update_collection_status(cursor, topic_id: int, status: str):
-    cursor.execute("UPDATE topics SET collection_status=%s, updated_at=NOW() WHERE id=%s", (status, topic_id))
+    cursor.execute("UPDATE tn_topic SET collection_status=%s, updated_at=NOW() WHERE id=%s", (status, topic_id))
 
 # ------------- Main -------------
 def collect_for_topic(cnx, topic: Dict, deadline_ts: float):
@@ -588,7 +588,7 @@ def collect_for_topic(cnx, topic: Dict, deadline_ts: float):
 
     # [수정] DB에서 현재 토픽에 속한 기사 수를 먼저 카운트
     cursor.execute(
-        "SELECT side, COUNT(*) as count FROM articles WHERE topic_id = %s AND status IN ('published', 'suggested') GROUP BY side",
+        "SELECT side, COUNT(*) as count FROM tn_article WHERE topic_id = %s AND status IN ('published', 'suggested') GROUP BY side",
         (topic_id,)
     )
     existing_counts = {row['side']: row['count'] for row in cursor.fetchall()}

@@ -18,7 +18,7 @@ router.use(authenticateAdmin);
 // [추가] '제안됨' 상태의 토픽 후보 목록 조회 API
 router.get("/topics/suggested", async (req: Request, res: Response) => {
   try {
-    const [rows] = await pool.query("SELECT * FROM topics WHERE status = 'suggested' ORDER BY created_at DESC");
+    const [rows] = await pool.query("SELECT * FROM tn_topic WHERE status = 'suggested' ORDER BY created_at DESC");
     res.json(rows);
   } catch (error) {
     console.error("Error fetching suggested topics:", error);
@@ -30,7 +30,7 @@ router.get("/topics/suggested", async (req: Request, res: Response) => {
 router.get("/topics/published", async (req: Request, res: Response) => {
   try {
     const [rows] = await pool.query(
-      "SELECT id, display_name, published_at FROM topics WHERE status = 'published' ORDER BY published_at DESC"
+      "SELECT id, display_name, published_at FROM tn_topic WHERE status = 'published' ORDER BY published_at DESC"
     );
     res.json(rows);
   } catch (error) {
@@ -50,7 +50,7 @@ router.post("/topics", async (req: Request, res: Response) => {
   try {
     // 1. 새 토픽을 DB에 삽입
     const [result]: any = await pool.query(
-      "INSERT INTO topics (core_keyword, sub_description, display_name, search_keywords, summary, status, collection_status, published_at) VALUES (?, ?, ?, ?, ?, 'published', 'pending', NOW())",
+      "INSERT INTO tn_topic (core_keyword, sub_description, display_name, search_keywords, summary, status, collection_status, published_at) VALUES (?, ?, ?, ?, ?, 'published', 'pending', NOW())",
       [displayName, "관리자 직접 생성", displayName, searchKeywords, summary || ""]
     );
     const newTopicId = result.insertId;
@@ -95,7 +95,7 @@ router.patch("/topics/:topicId/publish", async (req: Request, res: Response) => 
   try {
     const [result]: any = await pool.query(
       // [수정] SQL UPDATE문에서 thumbnail_url 부분을 제거합니다.
-      "UPDATE topics SET status = 'published', collection_status = 'pending', display_name = ?, search_keywords = ?, summary = ?, published_at = NOW() WHERE id = ? AND status = 'suggested'",
+      "UPDATE tn_topic SET status = 'published', collection_status = 'pending', display_name = ?, search_keywords = ?, summary = ?, published_at = NOW() WHERE id = ? AND status = 'suggested'",
       [displayName, searchKeywords, summary, topicId]
     );
 
@@ -128,7 +128,7 @@ router.patch("/topics/:topicId/reject", async (req: Request, res: Response) => {
   const { topicId } = req.params;
   try {
     const [result]: any = await pool.query(
-      "UPDATE topics SET status = 'rejected' WHERE id = ? AND status = 'suggested'",
+      "UPDATE tn_topic SET status = 'rejected' WHERE id = ? AND status = 'suggested'",
       [topicId]
     );
 
@@ -148,7 +148,7 @@ router.patch("/topics/:topicId/archive", async (req: Request, res: Response) => 
   const { topicId } = req.params;
   try {
     const [result]: any = await pool.query(
-      "UPDATE topics SET status = 'archived' WHERE id = ? AND status = 'published'",
+      "UPDATE tn_topic SET status = 'archived' WHERE id = ? AND status = 'published'",
       [topicId]
     );
 
@@ -173,7 +173,7 @@ router.get("/topics/:topicId/articles", async (req: Request, res: Response) => {
   }
 
   try {
-    const [articles] = await pool.query("SELECT * FROM articles WHERE topic_id = ? ORDER BY `display_order` ASC", [
+    const [articles] = await pool.query("SELECT * FROM tn_article WHERE topic_id = ? ORDER BY `display_order` ASC", [
       numericTopicId,
     ]);
     res.json(articles);
@@ -204,7 +204,7 @@ router.patch("/topics/:topicId/articles/order", async (req: Request, res: Respon
     for (let i = 0; i < left.length; i++) {
       const articleId = left[i];
       const displayOrder = i;
-      await connection.query("UPDATE articles SET display_order = ? WHERE id = ? AND topic_id = ?", [
+      await connection.query("UPDATE tn_article SET display_order = ? WHERE id = ? AND topic_id = ?", [
         displayOrder,
         articleId,
         numericTopicId,
@@ -214,7 +214,7 @@ router.patch("/topics/:topicId/articles/order", async (req: Request, res: Respon
     for (let i = 0; i < right.length; i++) {
       const articleId = right[i];
       const displayOrder = i;
-      await connection.query("UPDATE articles SET display_order = ? WHERE id = ? AND topic_id = ?", [
+      await connection.query("UPDATE tn_article SET display_order = ? WHERE id = ? AND topic_id = ?", [
         displayOrder,
         articleId,
         numericTopicId,
@@ -240,7 +240,7 @@ router.patch("/articles/:articleId/feature", async (req: Request, res: Response)
     await connection.beginTransaction(); // 트랜잭션 시작
 
     // 1. 이 기사가 속한 토픽 ID와 진영(side)을 찾습니다.
-    const [rows]: any = await connection.query("SELECT topic_id, side FROM articles WHERE id = ?", [articleId]);
+    const [rows]: any = await connection.query("SELECT topic_id, side FROM tn_article WHERE id = ?", [articleId]);
     if (rows.length === 0) {
       await connection.rollback();
       return res.status(404).json({ message: "Article not found." });
@@ -248,10 +248,10 @@ router.patch("/articles/:articleId/feature", async (req: Request, res: Response)
     const { topic_id, side } = rows[0];
 
     // 2. 해당 토픽의 같은 진영에 있는 다른 모든 기사를 '대표 아님'으로 설정합니다.
-    await connection.query("UPDATE articles SET is_featured = FALSE WHERE topic_id = ? AND side = ?", [topic_id, side]);
+    await connection.query("UPDATE tn_article SET is_featured = FALSE WHERE topic_id = ? AND side = ?", [topic_id, side]);
 
     // 3. 선택한 기사만 '대표'로 설정합니다.
-    await connection.query("UPDATE articles SET is_featured = TRUE WHERE id = ?", [articleId]);
+    await connection.query("UPDATE tn_article SET is_featured = TRUE WHERE id = ?", [articleId]);
 
     await connection.commit(); // 모든 쿼리 성공 시 최종 반영
     connection.release();
@@ -265,7 +265,7 @@ router.patch("/articles/:articleId/feature", async (req: Request, res: Response)
 router.patch("/articles/:articleId/delete", async (req: Request, res: Response) => {
   const { articleId } = req.params;
   try {
-    const [result]: any = await pool.query("UPDATE articles SET status = 'deleted' WHERE id = ?", [articleId]);
+    const [result]: any = await pool.query("UPDATE tn_article SET status = 'deleted' WHERE id = ?", [articleId]);
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: "Article not found." });
     }
@@ -307,7 +307,7 @@ router.patch("/articles/:articleId/publish", async (req: Request, res: Response)
 
     params.push(articleId);
 
-    const sql = `UPDATE articles SET ${updateFields.join(", ")} WHERE id = ?`;
+    const sql = `UPDATE tn_article SET ${updateFields.join(", ")} WHERE id = ?`;
     const [result]: any = await pool.query(sql, params);
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: "Article not found." });
@@ -324,7 +324,7 @@ router.patch("/articles/:articleId/unpublish", async (req: Request, res: Respons
   const { articleId } = req.params;
   try {
     const [result]: any = await pool.query(
-      "UPDATE articles SET status = 'suggested' WHERE id = ? AND status = 'published'",
+      "UPDATE tn_article SET status = 'suggested' WHERE id = ? AND status = 'published'",
       [articleId]
     );
     if (result.affectedRows === 0) {
@@ -343,18 +343,18 @@ router.post("/topics/:topicId/recollect", async (req: Request, res: Response) =>
   const normalizedKeywords = typeof payload?.searchKeywords === "string" ? payload.searchKeywords.trim() : undefined;
 
   try {
-    const [rows]: any = await pool.query("SELECT id FROM topics WHERE id = ? AND status = 'published'", [topicId]);
+    const [rows]: any = await pool.query("SELECT id FROM tn_topic WHERE id = ? AND status = 'published'", [topicId]);
     if (rows.length === 0) {
       return res.status(404).json({ message: "Published topic not found." });
     }
 
     if (normalizedKeywords) {
       await pool.query(
-        "UPDATE topics SET collection_status = 'pending', search_keywords = ?, updated_at = NOW() WHERE id = ?",
+        "UPDATE tn_topic SET collection_status = 'pending', search_keywords = ?, updated_at = NOW() WHERE id = ?",
         [normalizedKeywords, topicId]
       );
     } else {
-      await pool.query("UPDATE topics SET collection_status = 'pending', updated_at = NOW() WHERE id = ?", [topicId]);
+      await pool.query("UPDATE tn_topic SET collection_status = 'pending', updated_at = NOW() WHERE id = ?", [topicId]);
     }
 
     const pythonScriptPath = path.join(__dirname, "../../../different-news-data/article_collector.py");

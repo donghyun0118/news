@@ -9,7 +9,7 @@ router.get("/topics", async (req: Request, res: Response) => {
   try {
     // [수정] core_keyword 대신 display_name을 선택합니다.
     const [rows] = await pool.query(
-      "SELECT id, display_name, summary, published_at FROM topics WHERE status = 'published' ORDER BY published_at DESC"
+      "SELECT id, display_name, summary, published_at FROM tn_topic WHERE status = 'published' ORDER BY published_at DESC"
     );
     res.json(rows);
   } catch (error) {
@@ -24,11 +24,11 @@ router.get("/topics/:topicId", async (req: Request, res: Response) => {
   try {
     // [수정] 필요한 컬럼(display_name, summary 등)만 명시적으로 선택합니다.
     const [topicRows]: any = await pool.query(
-      "SELECT id, display_name, summary, published_at FROM topics WHERE id = ? AND status = 'published'",
+      "SELECT id, display_name, summary, published_at FROM tn_topic WHERE id = ? AND status = 'published'",
       [topicId]
     );
     const [articleRows] = await pool.query(
-      "SELECT id, source, source_domain, side, title, url, published_at, is_featured, thumbnail_url FROM articles WHERE topic_id = ? AND status = 'published' ORDER BY `display_order` ASC",
+      "SELECT id, source, source_domain, side, title, url, published_at, is_featured, thumbnail_url FROM tn_article WHERE topic_id = ? AND status = 'published' ORDER BY `display_order` ASC",
       [topicId]
     );
 
@@ -50,9 +50,9 @@ router.get("/topics/:topicId/comments", async (req: Request, res: Response) => {
   const { topicId } = req.params;
   try {
     const [comments]: any = await pool.query(
-      `SELECT c.id, c.content, c.created_at, u.username 
-       FROM comments c
-       JOIN users u ON c.user_id = u.id
+      `SELECT c.id, c.content, c.created_at, u.nickname 
+       FROM tn_comment c
+       JOIN tn_user u ON c.user_id = u.id
        WHERE c.topic_id = ? 
        ORDER BY c.created_at DESC`,
       [topicId]
@@ -76,15 +76,15 @@ router.post("/topics/:topicId/comments", authenticateUser, async (req: Authentic
 
   try {
     const [result]: any = await pool.query(
-      "INSERT INTO comments (topic_id, user_id, content) VALUES (?, ?, ?)",
+      "INSERT INTO tn_comment (topic_id, user_id, content) VALUES (?, ?, ?)",
       [topicId, userId, content]
     );
 
     // Fetch the newly created comment to return it
     const [newComment]: any = await pool.query(
-      `SELECT c.id, c.content, c.created_at, u.username 
-       FROM comments c
-       JOIN users u ON c.user_id = u.id
+      `SELECT c.id, c.content, c.created_at, u.nickname 
+       FROM tn_comment c
+       JOIN tn_user u ON c.user_id = u.id
        WHERE c.id = ?`,
       [result.insertId]
     );

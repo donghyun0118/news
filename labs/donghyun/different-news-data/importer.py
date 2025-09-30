@@ -31,7 +31,7 @@ def insert_topics_from_json(file_path='suggested_topics.json'):
         for topic in topic_candidates:
             # [수정] 중복 키가 있으면, sub_description과 status, created_at을 업데이트합니다.
             query = (
-                "INSERT INTO topics (core_keyword, sub_description, status, created_at) "
+                "INSERT INTO tn_topic (core_keyword, sub_description, status, created_at) "
                 "VALUES (%s, %s, 'suggested', NOW()) "
                 "ON DUPLICATE KEY UPDATE "
                 "  sub_description = VALUES(sub_description), "
