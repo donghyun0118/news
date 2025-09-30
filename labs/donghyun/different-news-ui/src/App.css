@@ -1049,3 +1049,360 @@ a.topic-card-link {
   color: var(--text-secondary);
   font-size: 0.9rem;
 }
+
+/* =========================================
+   NewsRound HomePage Styles
+   ========================================= */
+.newsround-page {
+  min-height: 100vh;
+  background-color: #0f0f0f;
+  color: #f5f5f5;
+  display: flex;
+  flex-direction: column;
+}
+
+.newsround-header {
+  display: grid;
+  grid-template-columns: 1fr minmax(320px, 520px) 1fr;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 32px 14px;
+  border-bottom: 1px solid #262626;
+  background: linear-gradient(180deg, #181818 0%, #101010 100%);
+}
+
+.newsround-logo {
+  font-size: 1.8rem;
+  font-weight: 800;
+  letter-spacing: 0.3rem;
+}
+
+.newsround-search {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.newsround-search-input {
+  flex: 1;
+  padding: 11px 14px;
+  background: #1b1b1b;
+  border: 1px solid #2f2f2f;
+  border-radius: 8px;
+  color: inherit;
+}
+
+.newsround-search-input:focus {
+  outline: none;
+  border-color: #3f7bff;
+  box-shadow: 0 0 0 2px rgba(63, 123, 255, 0.2);
+}
+
+.newsround-search-button {
+  padding: 11px 20px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #0d6efd, #1b49dd);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.newsround-search-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(13, 110, 253, 0.28);
+}
+
+.newsround-auth {
+  display: flex;
+  gap: 10px;
+  justify-self: end;
+}
+
+.newsround-auth-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 16px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: #262626;
+  color: #f4f4f4;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.newsround-auth-btn.primary {
+  background: linear-gradient(135deg, #1f6feb, #144bcc);
+}
+
+.newsround-auth-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+}
+
+.newsround-nav {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(130px, 1fr));
+  gap: 18px;
+  padding: 18px 32px 20px;
+  border-bottom: 1px solid #202020;
+  background: #111;
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.newsround-nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #1f1f1f 0%, #141414 100%);
+  border: 1px solid #272727;
+  padding: 12px 0;
+  border-radius: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.newsround-nav-item:hover {
+  transform: translateY(-2px);
+  border-color: #3f7bff;
+  box-shadow: 0 12px 28px rgba(63, 123, 255, 0.18);
+}
+
+.newsround-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  gap: 20px;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 32px 36px 48px;
+  box-sizing: border-box;
+}
+
+.newsround-section {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.newsround-column {
+  background: #161616;
+  border: 1px solid #242424;
+  border-radius: 16px;
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  min-height: 280px;
+}
+
+.newsround-column--chat {
+  justify-content: space-between;
+}
+
+.newsround-column-title {
+  margin: 0;
+  font-size: 1.1rem;
+  letter-spacing: 0.15em;
+}
+
+.newsround-column-divider {
+  width: 100%;
+  height: 2px;
+  margin: 12px 0 16px;
+  background: linear-gradient(90deg, #d92544 0%, transparent 100%);
+}
+
+.newsround-placeholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #181818 0%, #111 100%);
+  border: 1px dashed #2d2d2d;
+  border-radius: 12px;
+  color: #6f7682;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.newsround-chat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1;
+  background: linear-gradient(180deg, rgba(18, 18, 18, 0.95) 0%, rgba(10, 10, 10, 0.95) 100%),
+    radial-gradient(circle at 50% 10%, rgba(255, 255, 255, 0.1), transparent 70%);
+  border: 1px solid #292929;
+  border-radius: 16px;
+  padding: 20px 16px;
+}
+
+.newsround-chat-status {
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: center;
+  color: #f2a43c;
+}
+
+.newsround-chat-window {
+  flex: 1;
+  border-radius: 12px;
+  border: 1px solid #242424;
+  background: radial-gradient(circle at 50% 15%, rgba(255, 255, 255, 0.12), transparent 65%), #0c0c0c;
+}
+
+.newsround-chat-form {
+  display: flex;
+  gap: 10px;
+}
+
+.newsround-chat-input {
+  flex: 1;
+  padding: 12px;
+  background: #1a1a1a;
+  border: 1px solid #2d2d2d;
+  border-radius: 999px;
+  color: inherit;
+}
+
+.newsround-chat-input:focus {
+  outline: none;
+  border-color: #3f7bff;
+}
+
+.newsround-chat-send {
+  padding: 11px 18px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #1f6feb, #144bcc);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.newsround-chat-send:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(31, 111, 235, 0.35);
+}
+
+.newsround-sidebar--right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.newsround-round2 {
+  background: #161616;
+  border-radius: 16px;
+  border: 1px solid #262626;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.newsround-round2-title {
+  margin: 0;
+  font-size: 1rem;
+  letter-spacing: 0.35em;
+  text-align: center;
+}
+
+.newsround-round2-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.newsround-round2-item {
+  background: #1d1d1d;
+  border-radius: 10px;
+  border: 1px solid #2a2a2a;
+}
+
+.newsround-round2-link {
+  display: block;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  font-size: 0.78rem;
+  text-align: left;
+}
+
+.newsround-round2-link:hover {
+  background: #242424;
+  color: #ffffff;
+  border-color: #d92544;
+}
+
+.newsround-round2-empty {
+  margin: 0;
+  text-align: center;
+  color: #888;
+}
+
+.newsround-status {
+  background: #161616;
+  border-radius: 16px;
+  border: 1px solid #282828;
+  padding: 28px;
+  text-align: center;
+  font-weight: 600;
+  color: #cfd2ff;
+}
+
+.newsround-status--error {
+  color: #ff8a8a;
+}
+
+@media (max-width: 1200px) {
+  .newsround-header {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    text-align: center;
+  }
+
+  .newsround-logo {
+    justify-self: center;
+  }
+
+  .newsround-auth {
+    justify-content: center;
+  }
+
+  .newsround-content {
+    grid-template-columns: 1fr;
+    padding: 24px 24px 36px;
+  }
+
+  .newsround-section {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .newsround-nav {
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+    gap: 12px;
+  }
+
+  .newsround-header {
+    padding: 16px 18px 12px;
+  }
+
+  .newsround-content {
+    padding: 20px 18px 32px;
+  }
+}
