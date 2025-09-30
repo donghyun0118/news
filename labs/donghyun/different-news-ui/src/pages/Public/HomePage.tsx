@@ -1,7 +1,7 @@
-﻿import { useEffect, useMemo, useState, useRef } from "react";
-import type { FormEvent } from "react";
-import { Link, useLocation } from "react-router-dom";
+﻿import type { FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
+import { Link, useLocation } from "react-router-dom";
 import "../../App.css";
 import { fetchPublishedTopics } from "../../api";
 import { useUserAuth } from "../../context/UserAuthContext";
@@ -25,7 +25,7 @@ const HomePage = () => {
       toast.success(`환영합니다, ${location.state.userName}님!`);
       toastShownRef.current = true; // 토스트가 표시되었음을 기록
       // 새로고침 시 토스트가 다시 뜨는 것을 방지하기 위해 location.state를 초기화
-      window.history.replaceState({}, document.title)
+      window.history.replaceState({}, document.title);
     }
   }, [location.state]);
 
@@ -54,6 +54,11 @@ const HomePage = () => {
     loadTopics();
   }, []);
 
+  const handleLogout = () => {
+    logout();
+    toast.success("로그아웃 되었습니다.");
+  };
+
   const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
   };
@@ -73,7 +78,7 @@ const HomePage = () => {
   return (
     <div className="newsround-page">
       <header className="newsround-header">
-        <div className="newsround-logo">NEWSROUND1</div>
+        <Link to="/" className="newsround-logo">NEWSROUND1</Link>
         <form className="newsround-search" onSubmit={handleSearchSubmit}>
           <input
             type="search"
@@ -89,15 +94,15 @@ const HomePage = () => {
         </form>
         <div className="newsround-auth">
           {isAuthenticated ? (
-            <>
-              <span className="newsround-auth-btn">{user?.name}님</span>
+            <div className="newsround-user-actions">
+              <span className="newsround-welcome-text">{user?.name}님</span>
               <Link to="/mypage" className="newsround-auth-btn">
                 마이페이지
               </Link>
-              <button type="button" className="newsround-auth-btn primary" onClick={logout}>
+              <button onClick={handleLogout} className="newsround-auth-btn primary">
                 로그아웃
               </button>
-            </>
+            </div>
           ) : (
             <>
               <Link to="/login" className="newsround-auth-btn">

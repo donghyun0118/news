@@ -1,9 +1,16 @@
 ﻿import axios from "axios";
 import React, { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import { Link, useNavigate } from "react-router-dom";
 
 const signupPageStyles = `
+  .auth-page-logo-container {
+    position: absolute;
+    top: 24px;
+    left: 24px;
+    z-index: 10;
+  }
+
   .dark-signup-page {
     min-height: 100vh;
     display: flex;
@@ -15,6 +22,7 @@ const signupPageStyles = `
   }
 
   .dark-signup-container {
+    position: relative;
     width: 100%;
     max-width: 1120px;
     display: grid;
@@ -322,15 +330,20 @@ const SignupPage: React.FC = () => {
     <div className="dark-signup-page">
       {styles}
       <div className="dark-signup-container">
+        <div className="auth-page-logo-container">
+          <Link to="/" className="newsround-logo">
+            NEWSROUND1
+          </Link>
+        </div>
         <section className="dark-signup-info">
           <span className="dark-signup-kicker">NEWSROUND1</span>
-          <h1>뉴스 라운드를 시작해봐요</h1>
+          <h1>뉴스 라운드를 시작해 보세요</h1>
           <p>회원가입을 완료하면 맞춤형 뉴스 큐레이션과 ROUND2 인사이트를 모두 즐길 수 있어요.</p>
 
           <div className="dark-signup-benefits">
             <div className="dark-signup-benefit">관심사에 맞춘 토픽 알림으로 더 빠르게 소식을 받아보세요.</div>
             <div className="dark-signup-benefit">닉네임으로 참여하는 커뮤니티 채팅에서 의견을 나눌 수 있어요.</div>
-            <div className="dark-signup-benefit">경고 내역과 활동 상태를 한눈에 관리할 수 있는 마이페이지 제공.</div>
+            <div className="dark-signup-benefit">내 활동 상태를 한눈에 관리할 수 있는 마이페이지 제공.</div>
           </div>
         </section>
 

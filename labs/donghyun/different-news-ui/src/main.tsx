@@ -16,12 +16,14 @@ import HomePage from "./pages/Public/HomePage";
 import TopicDetailPage from "./pages/Public/TopicDetailPage";
 import SignupPage from "./pages/Public/SignupPage";
 import LoginPage from "./pages/Public/LoginPage";
+import MyPage from "./pages/Public/MyPage";
 
 const router = createBrowserRouter([
   { path: "/", element: <HomePage /> },
   { path: "/topics/:topicId", element: <TopicDetailPage /> },
   { path: "/signup", element: <SignupPage /> },
   { path: "/login", element: <LoginPage /> },
+  { path: "/mypage", element: <MyPage /> },
   { path: "/admin/login", element: <AdminLoginPage /> },
   {
     path: "/admin",

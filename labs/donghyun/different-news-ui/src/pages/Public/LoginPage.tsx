@@ -4,6 +4,13 @@ import { Link, useNavigate } from "react-router-dom";
 import { useUserAuth } from "../../context/UserAuthContext";
 
 const loginPageStyles = `
+  .auth-page-logo-container {
+    position: absolute;
+    top: 24px;
+    left: 24px;
+    z-index: 10;
+  }
+
   .dark-login-page {
     min-height: 100vh;
     display: flex;
@@ -15,6 +22,7 @@ const loginPageStyles = `
   }
 
   .dark-login-container {
+    position: relative;
     width: 100%;
     max-width: 1040px;
     display: grid;
@@ -278,11 +286,11 @@ const LoginPage: React.FC = () => {
 
       if (response.status === 200 && response.data.token && response.data.user) {
         login(response.data.token, response.data.user);
-        navigate("/", { 
-          state: { 
-            fromLogin: true, 
-            userName: response.data.user.name 
-          } 
+        navigate("/", {
+          state: {
+            fromLogin: true,
+            userName: response.data.user.name,
+          },
         });
         return;
       }
@@ -303,15 +311,18 @@ const LoginPage: React.FC = () => {
     <div className="dark-login-page">
       {styles}
       <div className="dark-login-container">
+        <div className="auth-page-logo-container">
+          <Link to="/" className="newsround-logo">NEWSROUND1</Link>
+        </div>
         <section className="dark-login-info">
           <span className="dark-login-kicker">NEWSROUND1</span>
-          <h1>다시 오신 것을 환영합니다</h1>
+          <h1>오신 것을 환영합니다</h1>
           <p>다음 라운드를 위한 큐레이션 뉴스를 계속 확인하려면 로그인하세요.</p>
 
           <div className="dark-login-highlights">
             <span className="dark-login-highlight">제휴 뉴스룸이 제공하는 맞춤형 토픽.</span>
             <span className="dark-login-highlight">하루 종일 업데이트되는 라운드 2 인사이트.</span>
-            <span className="dark-login-highlight">커뮤니티 채팅이 곧 돌아옵니다 — 기대해 주세요.</span>
+            <span className="dark-login-highlight">커뮤니티 채팅으로 의견을 나눌 수 있어요.</span>
           </div>
         </section>
 

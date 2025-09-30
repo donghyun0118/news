@@ -1,4 +1,4 @@
-﻿/* =========================================
+/* =========================================
    1. 전역 스타일 및 변수 (Global Styles & Variables)
    ========================================= */
 :root {
@@ -1188,17 +1188,17 @@ a.topic-card-link {
 .newsround-section {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 24px;
+  gap: 20px;
 }
 
 .newsround-column {
   background: #161616;
   border: 1px solid #242424;
   border-radius: 16px;
-  padding: 20px 22px;
+  padding: 20px 16px;
   display: flex;
   flex-direction: column;
-  min-height: 280px;
+  min-height: 400px;
 }
 
 .newsround-column--chat {
@@ -1225,7 +1225,7 @@ a.topic-card-link {
   justify-content: center;
   background: linear-gradient(180deg, #181818 0%, #111 100%);
   border: 1px dashed #2d2d2d;
-  border-radius: 12px;
+  border-radius: 8px;
   color: #6f7682;
   font-size: 0.95rem;
   font-weight: 500;
@@ -1252,7 +1252,7 @@ a.topic-card-link {
 
 .newsround-chat-window {
   flex: 1;
-  border-radius: 12px;
+  border-radius: 8px;
   border: 1px solid #242424;
   background: radial-gradient(circle at 50% 15%, rgba(255, 255, 255, 0.12), transparent 65%), #0c0c0c;
 }
@@ -1264,10 +1264,10 @@ a.topic-card-link {
 
 .newsround-chat-input {
   flex: 1;
-  padding: 12px;
-  background: #1a1a1a;
+  padding: 0px;
+  background: #2c2c2c;
   border: 1px solid #2d2d2d;
-  border-radius: 999px;
+  border-radius: 8px;
   color: inherit;
 }
 
@@ -1277,9 +1277,9 @@ a.topic-card-link {
 }
 
 .newsround-chat-send {
-  padding: 11px 18px;
+  padding: 8px 18px;
   border: none;
-  border-radius: 999px;
+  border-radius: 8px;
   background: linear-gradient(135deg, #1f6feb, #144bcc);
   color: #fff;
   font-weight: 700;
@@ -1366,6 +1366,18 @@ a.topic-card-link {
   color: #ff8a8a;
 }
 
+.newsround-user-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.newsround-welcome-text {
+  margin-right: 0.5rem;
+  font-size: 0.9rem;
+  color: #a0a0a0;
+}
+
 @media (max-width: 1200px) {
   .newsround-header {
     grid-template-columns: 1fr;
@@ -1384,11 +1396,6 @@ a.topic-card-link {
   .newsround-content {
     grid-template-columns: 1fr;
     padding: 24px 24px 36px;
-  }
-
-  .newsround-section {
-    grid-template-columns: 1fr;
-    gap: 20px;
   }
 }
 
