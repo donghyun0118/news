@@ -24,6 +24,17 @@ app.get("/", (req: Request, res: Response) => {
   res.send("Different News Server is running!");
 });
 
+import fs from "fs";
+import path from "path";
+
+// Global error handling middleware
+app.use((err: Error, req: Request, res: Response, next: Function) => {
+  const errorLog = `\n[${new Date().toISOString()}] Unhandled server error: ${err.message}\nDetailed error object: ${JSON.stringify(err, Object.getOwnPropertyNames(err))}\nStack: ${err.stack}\n`;
+  fs.appendFileSync(path.join(__dirname, '..', '..', 'server_errors.log'), errorLog);
+  console.error("An unhandled error occurred. Check server_errors.log for details.");
+  res.status(500).json({ message: "An unexpected server error occurred." });
+});
+
 // 서버 시작
 app.listen(port, async () => {
   console.log(`Server is running at http://localhost:${port}`);

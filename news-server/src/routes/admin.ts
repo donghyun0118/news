@@ -22,7 +22,7 @@ router.get("/topics/suggested", async (req: Request, res: Response) => {
     res.json(rows);
   } catch (error) {
     console.error("Error fetching suggested topics:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", detail: (error as Error).message });
   }
 });
 
@@ -35,7 +35,7 @@ router.get("/topics/published", async (req: Request, res: Response) => {
     res.json(rows);
   } catch (error) {
     console.error("Error fetching published topics:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", detail: (error as Error).message });
   }
 });
 
@@ -60,7 +60,7 @@ router.post("/topics", async (req: Request, res: Response) => {
     }
 
     // 2. 파이썬 스크립트를 호출하여 기사 수집 시작
-    const pythonScriptPath = path.join(__dirname, "../../../different-news-data/article_collector.py");
+    const pythonScriptPath = path.join(__dirname, "../../../news-data/article_collector.py");
     const command = `python "${pythonScriptPath}" ${newTopicId}`;
 
     console.log(`Executing command: ${command}`);
@@ -78,7 +78,7 @@ router.post("/topics", async (req: Request, res: Response) => {
       .json({ message: `Topic ${newTopicId} has been created and published. Article collection started.` });
   } catch (error) {
     console.error("Error creating new topic:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", detail: (error as Error).message });
   }
 });
 
@@ -103,7 +103,7 @@ router.patch("/topics/:topicId/publish", async (req: Request, res: Response) => 
       return res.status(404).json({ message: "Topic not found or already handled." });
     }
 
-    const pythonScriptPath = path.join(__dirname, "../../../different-news-data/article_collector.py");
+    const pythonScriptPath = path.join(__dirname, "../../../news-data/article_collector.py");
     const command = `python "${pythonScriptPath}" ${topicId}`;
 
     console.log(`Executing command: ${command}`);
@@ -119,7 +119,7 @@ router.patch("/topics/:topicId/publish", async (req: Request, res: Response) => 
     res.json({ message: `Topic ${topicId} has been published. Article collection started in the background.` });
   } catch (error) {
     console.error("Error publishing topic:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", detail: (error as Error).message });
   }
 });
 
@@ -139,7 +139,7 @@ router.patch("/topics/:topicId/reject", async (req: Request, res: Response) => {
     res.json({ message: `Topic ${topicId} has been rejected.` });
   } catch (error) {
     console.error("Error rejecting topic:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", detail: (error as Error).message });
   }
 });
 
@@ -159,7 +159,7 @@ router.patch("/topics/:topicId/archive", async (req: Request, res: Response) => 
     res.json({ message: `Topic ${topicId} has been archived.` });
   } catch (error) {
     console.error("Error archiving topic:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", detail: (error as Error).message });
   }
 });
 
@@ -179,7 +179,7 @@ router.get("/topics/:topicId/articles", async (req: Request, res: Response) => {
     res.json(articles);
   } catch (error) {
     console.error("Error fetching suggested articles:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", detail: (error as Error).message });
   }
 });
 
@@ -263,7 +263,7 @@ router.patch("/articles/:articleId/feature", async (req: Request, res: Response)
     res.json({ message: `Article ${articleId} has been set as featured.` });
   } catch (error) {
     console.error("Error featuring article:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", detail: (error as Error).message });
   }
 });
 
@@ -278,7 +278,7 @@ router.patch("/articles/:articleId/delete", async (req: Request, res: Response) 
     res.json({ message: `Article ${articleId} has been deleted.` });
   } catch (error) {
     console.error("Error deleting article:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", detail: (error as Error).message });
   }
 });
 
@@ -321,7 +321,7 @@ router.patch("/articles/:articleId/publish", async (req: Request, res: Response)
     res.json({ message: `Article ${articleId} has been published.` });
   } catch (error) {
     console.error("Error publishing article:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", detail: (error as Error).message });
   }
 });
 
@@ -339,7 +339,7 @@ router.patch("/articles/:articleId/unpublish", async (req: Request, res: Respons
     res.json({ message: `Article ${articleId} has been unpublished.` });
   } catch (error) {
     console.error("Error unpublishing article:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", detail: (error as Error).message });
   }
 });
 
@@ -364,7 +364,7 @@ router.post("/topics/:topicId/recollect", async (req: Request, res: Response) =>
       await pool.query("UPDATE tn_topic SET collection_status = 'pending', updated_at = NOW() WHERE id = ?", [topicId]);
     }
 
-    const pythonScriptPath = path.join(__dirname, "../../../different-news-data/article_collector.py");
+    const pythonScriptPath = path.join(__dirname, "../../../news-data/article_collector.py");
     const command = `python "${pythonScriptPath}" ${topicId}`;
 
     exec(command, (error, stdout, stderr) => {
@@ -379,7 +379,7 @@ router.post("/topics/:topicId/recollect", async (req: Request, res: Response) =>
     res.json({ message: `Recollection started for topic ${topicId}.`, searchKeywords: normalizedKeywords });
   } catch (error) {
     console.error("Error starting recollection:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", detail: (error as Error).message });
   }
 });
 

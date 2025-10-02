@@ -582,6 +582,7 @@ def collect_for_topic(cnx, topic: Dict, deadline_ts: float):
 
     # Remove URLs already saved for this topic
     cursor = cnx.cursor(dictionary=True)
+    update_collection_status(cursor, topic_id, "collecting")
     existing_urls, blocked_urls = get_existing_urls_for_topic(cursor, topic_id)
     candidates = [a for a in candidates if a.url not in blocked_urls]
     candidates = [a for a in candidates if a.url not in existing_urls]
@@ -635,7 +636,6 @@ def collect_for_topic(cnx, topic: Dict, deadline_ts: float):
                     a.thumbnail_url = None
 
     # Insert
-    update_collection_status(cursor, topic_id, "collecting")
     orders = {"LEFT": 0, "RIGHT": 0}
     for a in (left + right):
         orders[a.side] += 1

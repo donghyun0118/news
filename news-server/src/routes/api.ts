@@ -1,28 +1,32 @@
 import { Request, Response, Router } from "express";
 import pool from "../config/db";
-import { authenticateUser, AuthenticatedRequest } from "../middleware/userAuth";
+import { AuthenticatedRequest, authenticateUser } from "../middleware/userAuth";
 
 const router = Router();
 
-// GET /api/topics - 전체 토픽 목록 조회
+// GET /api/topics - 발행된 토픽 목록 조회
 router.get("/topics", async (req: Request, res: Response) => {
+  let connection;
   try {
-    // [수정] core_keyword 대신 display_name을 선택합니다.
-    const [rows] = await pool.query(
+    connection = await pool.getConnection(); // Explicitly get a connection
+    const [rows] = await connection.query(
       "SELECT id, display_name, summary, published_at FROM tn_topic WHERE status = 'published' ORDER BY published_at DESC"
     );
     res.json(rows);
   } catch (error) {
     console.error("Error fetching topics:", error);
+    console.error("Detailed error object:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
     res.status(500).json({ message: "Server error" });
+  } finally {
+    if (connection) connection.release(); // Release the connection
   }
 });
 
-// GET /api/topics/:topicId - 특정 토픽 상세 정보 조회
+// GET /api/topics/:topicId - 토픽 상세 및 관련 기사 조회
 router.get("/topics/:topicId", async (req: Request, res: Response) => {
   const { topicId } = req.params;
   try {
-    // [수정] 필요한 컬럼(display_name, summary 등)만 명시적으로 선택합니다.
+    // 토픽 정보와 관련 기사들을 각각 조회
     const [topicRows]: any = await pool.query(
       "SELECT id, display_name, summary, published_at FROM tn_topic WHERE id = ? AND status = 'published'",
       [topicId]
@@ -45,7 +49,7 @@ router.get("/topics/:topicId", async (req: Request, res: Response) => {
   }
 });
 
-// GET /api/topics/:topicId/comments - 특정 토픽의 댓글 목록 조회
+// GET /api/topics/:topicId/comments - 토픽 댓글 목록 조회
 router.get("/topics/:topicId/comments", async (req: Request, res: Response) => {
   const { topicId } = req.params;
   try {
@@ -64,7 +68,7 @@ router.get("/topics/:topicId/comments", async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/topics/:topicId/comments - 특정 토픽에 새 댓글 작성 (인증 필요)
+// POST /api/topics/:topicId/comments - 토픽 댓글 작성
 router.post("/topics/:topicId/comments", authenticateUser, async (req: AuthenticatedRequest, res: Response) => {
   const { topicId } = req.params;
   const { content } = req.body;
@@ -75,12 +79,13 @@ router.post("/topics/:topicId/comments", authenticateUser, async (req: Authentic
   }
 
   try {
-    const [result]: any = await pool.query(
-      "INSERT INTO tn_comment (topic_id, user_id, content) VALUES (?, ?, ?)",
-      [topicId, userId, content]
-    );
+    const [result]: any = await pool.query("INSERT INTO tn_comment (topic_id, user_id, content) VALUES (?, ?, ?)", [
+      topicId,
+      userId,
+      content,
+    ]);
 
-    // Fetch the newly created comment to return it
+    // Inserted comment ID를 사용하여 새로 작성된 댓글 정보를 다시 조회
     const [newComment]: any = await pool.query(
       `SELECT c.id, c.content, c.created_at, u.nickname 
        FROM tn_comment c
