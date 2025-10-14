@@ -37,11 +37,11 @@ export const collectLatestArticles = async () => {
         if (parsedFeed && parsedFeed.items) {
           parsedFeed.items.forEach(item => {
             if (item.link && item.title) {
-              // [수정] isoDate를 우선적으로 사용하여 날짜 파싱 안정성 향상
               const dateString = item.isoDate || item.pubDate;
               allParsedArticles.push({
                 source: feed.source,
                 source_domain: feed.source_domain,
+                category: feed.section, // 카테고리 추가
                 title: item.title,
                 url: item.link,
                 published_at: dateString ? new Date(dateString) : null,
@@ -86,13 +86,14 @@ export const collectLatestArticles = async () => {
       const values = newArticles.map(article => [
         article.source,
         article.source_domain,
+        article.category, // 카테고리 추가
         article.title,
         article.url,
         article.published_at,
       ]);
 
       await connection.query(
-        'INSERT INTO tn_home_article (source, source_domain, title, url, published_at) VALUES ?',
+        'INSERT INTO tn_home_article (source, source_domain, category, title, url, published_at) VALUES ?',
         [values]
       );
       console.log(`${newArticles.length}개의 새로운 기사를 데이터베이스에 저장했습니다.`);
