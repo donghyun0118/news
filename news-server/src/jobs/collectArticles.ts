@@ -26,23 +26,29 @@ export const collectLatestArticles = async () => {
     const parser = new Parser();
     const allParsedArticles: any[] = [];
 
+    const customHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+    };
+
     const feedPromises = FEEDS.map(async (feed) => {
       try {
-        const parsedFeed = await parser.parseURL(feed.url);
+        const encodedUrl = encodeURI(feed.url);
+        const parsedFeed = await parser.parseURL(encodedUrl, { headers: customHeaders });
         if (parsedFeed && parsedFeed.items) {
-          parsedFeed.items.forEach(item => {
-            if (item.link && item.title) {
-              allParsedArticles.push({
-                source: feed.source,
-                source_domain: feed.source_domain,
-                side: feed.side,
-                title: item.title,
-                url: item.link,
-                published_at: item.pubDate ? new Date(item.pubDate) : null,
-                thumbnail_url: item.enclosure?.url || null,
-              });
-            }
-          });
+            parsedFeed.items.forEach(item => {
+                if (item.link && item.title) {
+                    allParsedArticles.push({
+                        source: feed.source,
+                        source_domain: feed.source_domain,
+                        side: feed.side,
+                        title: item.title,
+                        url: item.link,
+                        published_at: item.pubDate ? new Date(item.pubDate) : null,
+                        thumbnail_url: item.enclosure?.url || null, // 기본 썸네일 로직
+                    });
+                }
+            });
         }
       } catch (error) {
         console.error(`'${feed.source}' (${feed.url}) 피드 파싱 중 오류 발생:`, error);
@@ -71,7 +77,6 @@ export const collectLatestArticles = async () => {
       const values = newArticles.map(article => [
         article.source,
         article.source_domain,
-        article.side,
         article.title,
         article.url,
         article.published_at,
@@ -79,7 +84,7 @@ export const collectLatestArticles = async () => {
       ]);
 
       await connection.query(
-        'INSERT INTO tn_home_article (source, source_domain, side, title, url, published_at, thumbnail_url) VALUES ?',
+        'INSERT INTO tn_home_article (source, source_domain, title, url, published_at, thumbnail_url) VALUES ?',
         [values]
       );
       console.log(`${newArticles.length}개의 새로운 기사를 데이터베이스에 저장했습니다.`);
