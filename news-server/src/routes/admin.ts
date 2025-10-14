@@ -61,7 +61,7 @@ router.use(authenticateAdmin);
  * /api/admin/topics/suggested:
  *   get:
  *     tags: [Admin]
- *     summary: '제안됨' 상태의 토픽 후보 목록 조회
+ *     summary: 제안됨 상태의 토픽 후보 목록 조회
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -85,7 +85,7 @@ router.get("/topics/suggested", async (req: Request, res: Response) => {
  * /api/admin/topics/published:
  *   get:
  *     tags: [Admin]
- *     summary: '발행됨' 상태의 모든 토픽 목록 조회
+ *     summary: 발행됨 상태의 모든 토픽 목록 조회
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -180,7 +180,7 @@ router.post("/topics", async (req: Request, res: Response) => {
  * /api/admin/topics/{topicId}/publish:
  *   patch:
  *     tags: [Admin]
- *     summary: '제안된' 토픽을 '발행됨' 상태로 변경 (발행)
+ *     summary: 제안된 토픽을 발행됨 상태로 변경
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -250,7 +250,7 @@ router.patch("/topics/:topicId/publish", async (req: Request, res: Response) => 
  * /api/admin/topics/{topicId}/reject:
  *   patch:
  *     tags: [Admin]
- *     summary: '제안된' 토픽을 '거절됨' 상태로 변경
+ *     summary: 제안된 토픽을 거절됨 상태로 변경
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -287,7 +287,7 @@ router.patch("/topics/:topicId/reject", async (req: Request, res: Response) => {
  * /api/admin/topics/{topicId}/archive:
  *   patch:
  *     tags: [Admin]
- *     summary: '발행된' 토픽을 '보관됨' 상태로 변경
+ *     summary: 발행된 토픽을 보관됨 상태로 변경
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -442,7 +442,7 @@ router.patch("/topics/:topicId/articles/order", async (req: Request, res: Respon
  * /api/admin/articles/{articleId}/feature:
  *   patch:
  *     tags: [Admin]
- *     summary: 특정 기사를 '대표' 기사로 설정
+ *     summary: 특정 기사를 대표 기사로 설정
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -491,7 +491,7 @@ router.patch("/articles/:articleId/feature", async (req: Request, res: Response)
  * /api/admin/articles/{articleId}/delete:
  *   patch:
  *     tags: [Admin]
- *     summary: 특정 기사를 '삭제됨' 상태로 변경
+ *     summary: 특정 기사를 삭제됨 상태로 변경
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -523,7 +523,7 @@ router.patch("/articles/:articleId/delete", async (req: Request, res: Response) 
  * /api/admin/articles/{articleId}/publish:
  *   patch:
  *     tags: [Admin]
- *     summary: 특정 기사의 상태를 '발행됨'으로 변경
+ *     summary: 특정 기사의 상태를 발행됨으로 변경
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -593,7 +593,7 @@ router.patch("/articles/:articleId/publish", async (req: Request, res: Response)
  * /api/admin/articles/{articleId}/unpublish:
  *   patch:
  *     tags: [Admin]
- *     summary: '발행된' 기사를 다시 '제안됨' 상태로 변경
+ *     summary: 발행된 기사를 다시 제안됨 상태로 변경
  *     security:
  *       - bearerAuth: []
  *     parameters:
