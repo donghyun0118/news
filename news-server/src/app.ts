@@ -12,6 +12,7 @@ import authRouter from "./routes/auth";
 import userRouter from "./routes/user";
 import apiRouter from "./routes/api";
 import scrapeRouter from "./routes/scrape";
+import jobsRouter from "./routes/jobs";
 
 dotenv.config();
 
@@ -23,17 +24,16 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Swagger UI (한글 명세 제공)
-const swaggerUiHandler = swaggerUi.setup(specs);
-app.use("/api-docs", swaggerUi.serve, swaggerUiHandler);
-app.use("/api/api-docs", swaggerUi.serve, swaggerUiHandler);
+// Swagger UI
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs));
 
-// API 라우터
+// API 라우터 (라우팅 순서 수정됨)
 app.use("/api/admin", adminRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/user", userRouter);
+app.use("/api/jobs", jobsRouter);
 app.use("/api/scrape", scrapeRouter);
-app.use("/api", apiRouter);
+app.use("/api", apiRouter); // 일반적인 라우터는 맨 뒤로
 
 // 헬스 체크
 app.get("/", (req: Request, res: Response) => {
@@ -47,9 +47,11 @@ app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
     fs.mkdirSync(logDir, { recursive: true });
   }
 
-  const errorLog = `\n[${new Date().toISOString()}] 처리되지 않은 서버 오류 발생: ${
-    err.message
-  }\n상세 오류 객체: ${JSON.stringify(err, Object.getOwnPropertyNames(err))}\nStack: ${err.stack}\n`;
+  const errorLog = `
+[${new Date().toISOString()}] 처리되지 않은 서버 오류 발생: ${err.message}
+상세 오류 객체: ${JSON.stringify(err, Object.getOwnPropertyNames(err))}
+Stack: ${err.stack}
+`;
   fs.appendFileSync(path.join(logDir, "server_errors.log"), errorLog);
 
   console.error("예상하지 못한 서버 오류가 발생했습니다. logs/server_errors.log를 확인하세요.");
