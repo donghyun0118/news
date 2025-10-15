@@ -41,13 +41,15 @@ if (JOB_SECRET) {
         res.status(202).json({ message: "Article collection job started." });
 
         // await를 사용하지 않음으로써, 클라이언트가 응답을 기다리지 않게 합니다.
-        collectLatestArticles().then(result => {
-            if (result.success) {
-                console.log(`백그라운드 작업 완료: ${result.articlesAdded}개의 새 기사 추가됨`);
-            } else {
-                console.error(`백그라운드 작업 실패: ${result.message}`);
-            }
-        });
+        // 디버깅 중이므로, 결과 처리를 잠시 주석 처리합니다.
+        // collectLatestArticles().then(result => {
+        //     if (result.success) {
+        //         console.log(`백그라운드 작업 완료: ${result.articlesAdded}개의 새 기사 추가됨`);
+        //     } else {
+        //         console.error(`백그라운드 작업 실패: ${result.message}`);
+        //     }
+        // });
+        collectLatestArticles(); // 결과 처리 없이 호출만 하도록 변경
     });
 }
 
