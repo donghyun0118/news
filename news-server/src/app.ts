@@ -11,8 +11,9 @@ import adminRouter from "./routes/admin";
 import authRouter from "./routes/auth";
 import userRouter from "./routes/user";
 import apiRouter from "./routes/api";
+import articlesRouter from "./routes/articles"; // 수정
 import scrapeByCategoryRouter from "./routes/scrapeByCategory";
-import scrapeBySourceRouter from "./routes/scrapeBySource"; // 추가
+import scrapeBySourceRouter from "./routes/scrapeBySource";
 import jobsRouter from "./routes/jobs";
 
 dotenv.config();
@@ -33,8 +34,9 @@ app.use("/api/admin", adminRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/user", userRouter);
 app.use("/api/jobs", jobsRouter);
+app.use("/api/articles", articlesRouter); // 수정
 app.use("/api/scrape-by-category", scrapeByCategoryRouter);
-app.use("/api/scrape-by-source", scrapeBySourceRouter); // 추가
+app.use("/api/scrape-by-source", scrapeBySourceRouter);
 app.use("/api", apiRouter); // 일반적인 라우터는 맨 뒤로
 
 // 헬스 체크
