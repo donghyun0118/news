@@ -36,9 +36,7 @@ const LOGO_FALLBACK_MAP: { [key: string]: string } = {
 async function resolveGoogleNewsUrl(url: string): Promise<string> {
   if (url.includes('news.google.com')) {
     try {
-      // [수정] axios의 엄격한 타입 체크를 우회하기 위해 as any 사용
       const response = await axios.get(url, { maxRedirects: 5, timeout: 5000 } as any);
-      // [수정] response 객체의 내부 속성에 접근하기 위해 as any 사용
       return (response as any).request.res.responseUrl || url;
     } catch (error) {
       console.error(`Google News URL 확인 중 오류: ${url}`, error);
@@ -70,7 +68,17 @@ export const collectLatestArticles = async () => {
   let connection;
   try {
     connection = await pool.getConnection();
-    const parser = new Parser<any, CustomFeedItem>({ customFields: { item: ['content:encoded'] } });
+    
+    // [수정] 헤더와 파서 생성 로직
+    const customHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36',
+      'Accept': 'application/xml, text/xml, application/rss+xml, */*',
+    };
+    const parser = new Parser<any, CustomFeedItem>({
+      headers: customHeaders,
+      customFields: { item: ['content:encoded'] }
+    });
+
     let initialParsedArticles: any[] = [];
 
     // 1. 모든 RSS 피드에서 기본 정보 파싱
@@ -95,7 +103,7 @@ export const collectLatestArticles = async () => {
       }
     });
 
-    // 2. 썸네일 및 최종 데이터 정리 (하이브리드 방식)
+    // 2. 썸네일 및 최종 데이터 정리
     const processingPromises = initialParsedArticles.map(async ({ feed, item }) => {
       const dateString = item.isoDate || item.pubDate;
       const publishedDate = dateString ? new Date(dateString) : new Date();
