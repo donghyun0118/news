@@ -51,7 +51,10 @@ async function scrapeOgImage(url: string): Promise<string | null> {
     const { data: html } = await axios.get<string>(url, { timeout: 5000 });
     const $ = cheerio.load(html);
     const ogImage = $('meta[property="og:image"]').attr('content');
-    return ogImage || null;
+    if (ogImage && ogImage.startsWith('http')) {
+      return ogImage;
+    }
+    return null;
   } catch (error) {
     return null;
   }
@@ -68,20 +71,9 @@ export const collectLatestArticles = async () => {
   let connection;
   try {
     connection = await pool.getConnection();
-    
-    // [수정] 헤더와 파서 생성 로직
-    const customHeaders = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36',
-      'Accept': 'application/xml, text/xml, application/rss+xml, */*',
-    };
-    const parser = new Parser<any, CustomFeedItem>({
-      headers: customHeaders,
-      customFields: { item: ['content:encoded'] }
-    });
-
+    const parser = new Parser<any, CustomFeedItem>({ customFields: { item: ['content:encoded'] } });
     let initialParsedArticles: any[] = [];
 
-    // 1. 모든 RSS 피드에서 기본 정보 파싱
     const feedPromises = FEEDS.map(async (feed) => {
       try {
         const parsedFeed = await parser.parseURL(encodeURI(feed.url));
@@ -103,7 +95,6 @@ export const collectLatestArticles = async () => {
       }
     });
 
-    // 2. 썸네일 및 최종 데이터 정리
     const processingPromises = initialParsedArticles.map(async ({ feed, item }) => {
       const dateString = item.isoDate || item.pubDate;
       const publishedDate = dateString ? new Date(dateString) : new Date();
@@ -115,7 +106,10 @@ export const collectLatestArticles = async () => {
         const $ = cheerio.load(content);
         const imgTag = $('img').first();
         if (imgTag.length) {
-          thumbnailUrl = imgTag.attr('data-src') || imgTag.attr('src') || null;
+          const potentialUrl = imgTag.attr('data-src') || imgTag.attr('src') || null;
+          if (potentialUrl && potentialUrl.startsWith('http')) {
+            thumbnailUrl = potentialUrl;
+          }
         }
       }
 
@@ -136,16 +130,17 @@ export const collectLatestArticles = async () => {
     const allParsedArticles = await Promise.all(processingPromises);
     console.log(`총 ${allParsedArticles.length}개 기사 처리 완료.`);
 
-    // 3. 중복 제거 및 DB 저장
     const uniqueArticlesMap = new Map<string, ParsedArticle>();
     allParsedArticles.forEach(article => { if (!uniqueArticlesMap.has(article.url)) { uniqueArticlesMap.set(article.url, article); } });
     const uniqueParsedArticles = Array.from(uniqueArticlesMap.values());
+
+    let newArticles: ParsedArticle[] = []; // [수정] 변수 선언 위치를 바깥으로 이동
 
     if (uniqueParsedArticles.length > 0) {
       const allUrls = uniqueParsedArticles.map(article => article.url);
       const [existingRows] = await connection.query<RowDataPacket[]>('SELECT url FROM tn_home_article WHERE url IN (?)', [allUrls]);
       const existingUrls = new Set(existingRows.map(row => row.url));
-      const newArticles = uniqueParsedArticles.filter(article => !existingUrls.has(article.url));
+      newArticles = uniqueParsedArticles.filter(article => !existingUrls.has(article.url)); // [수정] 외부 변수에 할당
       console.log(`${newArticles.length}개의 새로운 기사 발견.`);
 
       if (newArticles.length > 0) {
@@ -153,10 +148,12 @@ export const collectLatestArticles = async () => {
         await connection.query('INSERT INTO tn_home_article (source, source_domain, category, title, url, published_at, thumbnail_url) VALUES ?', [values]);
         console.log(`${newArticles.length}개 기사 저장 완료.`);
       }
+    } else {
+        console.log('파싱된 기사가 없어 DB 확인을 건너뜁니다.');
     }
 
     console.log('기사 수집 작업 완료.');
-    return { success: true, articlesAdded: uniqueParsedArticles.length };
+    return { success: true, articlesAdded: newArticles.length }; // [수정] 이제 정상적으로 접근 가능
 
   } catch (error) {
     console.error('기사 수집 중 오류:', error);
