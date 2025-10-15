@@ -39,7 +39,6 @@ async function resolveGoogleNewsUrl(url: string): Promise<string> {
       const response = await axios.get(url, { maxRedirects: 5, timeout: 5000 } as any);
       return (response as any).request.res.responseUrl || url;
     } catch (error) {
-      console.error(`Google News URL 확인 중 오류: ${url}`, error);
       return url;
     }
   }
@@ -78,8 +77,8 @@ export const collectLatestArticles = async () => {
   try {
     connection = await pool.getConnection();
     const parser = new Parser<any, CustomFeedItem>({ customFields: { item: ['content:encoded'] } });
-    let initialParsedArticles: any[] = [];
 
+    // 1. 모든 RSS 피드에서 기본 정보 파싱
     const feedPromises = FEEDS.map(async (feed) => {
       try {
         const response = await axios.get<string>(encodeURI(feed.url), {
@@ -88,22 +87,26 @@ export const collectLatestArticles = async () => {
             }
         });
         const parsedFeed = await parser.parseString(response.data);
-
+        const feedItems: any[] = [];
         if (parsedFeed && parsedFeed.items) {
           parsedFeed.items.forEach((item: CustomFeedItem) => {
             if (item.link && item.title) {
-              initialParsedArticles.push({ feed, item });
+              feedItems.push({ feed, item });
             }
           });
         }
+        return feedItems; // [수정] 각자 파싱한 결과를 반환
       } catch (error) {
         console.error(`'${feed.source}' 피드 처리 실패:`, error);
+        return []; // [수정] 실패 시 빈 배열 반환
       }
     });
 
-    await Promise.all(feedPromises);
+    const results = await Promise.all(feedPromises);
+    const initialParsedArticles = results.flat(); // [수정] 모든 결과를 하나의 배열로 합침
     console.log(`총 ${initialParsedArticles.length}개 기사 아이템 파싱 완료.`);
 
+    // 2. 썸네일 및 최종 데이터 정리
     const processingPromises = initialParsedArticles.map(async ({ feed, item }) => {
       const dateString = item.isoDate || item.pubDate;
       const publishedDate = dateString ? new Date(dateString) : new Date();
@@ -140,12 +143,12 @@ export const collectLatestArticles = async () => {
     const allParsedArticles = await Promise.all(processingPromises);
     console.log(`총 ${allParsedArticles.length}개 기사 처리 완료.`);
 
+    // 3. 중복 제거 및 DB 저장
     const uniqueArticlesMap = new Map<string, ParsedArticle>();
     allParsedArticles.forEach(article => { if (!uniqueArticlesMap.has(article.url)) { uniqueArticlesMap.set(article.url, article); } });
     const uniqueParsedArticles = Array.from(uniqueArticlesMap.values());
 
     let newArticles: ParsedArticle[] = [];
-
     if (uniqueParsedArticles.length > 0) {
       const allUrls = uniqueParsedArticles.map(article => article.url);
       const [existingRows] = await connection.query<RowDataPacket[]>('SELECT url FROM tn_home_article WHERE url IN (?)', [allUrls]);
