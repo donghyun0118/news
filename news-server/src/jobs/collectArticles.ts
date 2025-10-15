@@ -37,7 +37,9 @@ async function resolveGoogleNewsUrl(url: string): Promise<string> {
   if (url.includes('news.google.com')) {
     try {
       const response = await axios.get(url, { maxRedirects: 5, timeout: 5000 } as any);
-      return (response as any).request.res.responseUrl || url;
+      // [수정] Optional Chaining(?.)을 사용하여 안전하게 속성에 접근
+      const finalUrl = (response as any)?.request?.res?.responseUrl || url;
+      return finalUrl;
     } catch (error) {
       console.error(`Google News URL 확인 중 오류: ${url}`, error);
       return url;
