@@ -71,7 +71,16 @@ export const collectLatestArticles = async () => {
   let connection;
   try {
     connection = await pool.getConnection();
-    const parser = new Parser<any, CustomFeedItem>({ customFields: { item: ['content:encoded'] } });
+    
+    // [수정] 오마이뉴스 406 오류 해결을 위해 Accept 헤더 제거
+    const customHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36',
+    };
+    const parser = new Parser<any, CustomFeedItem>({
+      headers: customHeaders,
+      customFields: { item: ['content:encoded'] }
+    });
+
     let initialParsedArticles: any[] = [];
 
     const feedPromises = FEEDS.map(async (feed) => {
@@ -134,13 +143,13 @@ export const collectLatestArticles = async () => {
     allParsedArticles.forEach(article => { if (!uniqueArticlesMap.has(article.url)) { uniqueArticlesMap.set(article.url, article); } });
     const uniqueParsedArticles = Array.from(uniqueArticlesMap.values());
 
-    let newArticles: ParsedArticle[] = []; // [수정] 변수 선언 위치를 바깥으로 이동
+    let newArticles: ParsedArticle[] = [];
 
     if (uniqueParsedArticles.length > 0) {
       const allUrls = uniqueParsedArticles.map(article => article.url);
       const [existingRows] = await connection.query<RowDataPacket[]>('SELECT url FROM tn_home_article WHERE url IN (?)', [allUrls]);
       const existingUrls = new Set(existingRows.map(row => row.url));
-      newArticles = uniqueParsedArticles.filter(article => !existingUrls.has(article.url)); // [수정] 외부 변수에 할당
+      newArticles = uniqueParsedArticles.filter(article => !existingUrls.has(article.url));
       console.log(`${newArticles.length}개의 새로운 기사 발견.`);
 
       if (newArticles.length > 0) {
@@ -153,7 +162,7 @@ export const collectLatestArticles = async () => {
     }
 
     console.log('기사 수집 작업 완료.');
-    return { success: true, articlesAdded: newArticles.length }; // [수정] 이제 정상적으로 접근 가능
+    return { success: true, articlesAdded: newArticles.length };
 
   } catch (error) {
     console.error('기사 수집 중 오류:', error);
