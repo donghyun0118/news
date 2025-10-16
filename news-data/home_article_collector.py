@@ -116,17 +116,22 @@ def main():
 
                 # 4. 썸네일 처리
                 thumbnail_url = None
-                if hasattr(item, 'description'):
-                    soup = BeautifulSoup(item.description, 'html.parser')
-                    img_tag = soup.find('img')
-                    if img_tag and img_tag.get('src', '').startswith('http'):
-                        thumbnail_url = img_tag['src']
-                
-                if not thumbnail_url:
-                    thumbnail_url = scrape_og_image(final_url)
+                source_name = feed_info['source']
 
+                # 중앙일보가 아닌 경우에만 썸네일 스크레이핑 시도
+                if source_name != '중앙일보':
+                    if hasattr(item, 'description'):
+                        soup = BeautifulSoup(item.description, 'html.parser')
+                        img_tag = soup.find('img')
+                        if img_tag and img_tag.get('src', '').startswith('http'):
+                            thumbnail_url = img_tag['src']
+                    
+                    if not thumbnail_url:
+                        thumbnail_url = scrape_og_image(final_url)
+
+                # 최종적으로 썸네일이 없으면 로고로 대체 (중앙일보 포함)
                 if not thumbnail_url:
-                    thumbnail_url = LOGO_FALLBACK_MAP.get(feed_info['source'])
+                    thumbnail_url = LOGO_FALLBACK_MAP.get(source_name)
 
                 all_articles.append({
                     'source': feed_info['source'],
