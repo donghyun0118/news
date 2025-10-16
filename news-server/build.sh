@@ -3,9 +3,13 @@
 # Exit on error
 set -e
 
-# Install Node.js dependencies (assuming npm, change to yarn if you use it)
+# Install Node.js dependencies
 echo "Installing Node.js dependencies..."
 npm install
+
+# Compile TypeScript to JavaScript
+echo "Compiling TypeScript..."
+npm run build
 
 # Install Python dependencies from the news-data directory
 echo "Installing Python dependencies..."
