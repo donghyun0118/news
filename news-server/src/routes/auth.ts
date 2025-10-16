@@ -68,7 +68,7 @@ const router = Router();
  *                   type: string
  *                   example: "회원가입이 완료되었습니다."
  *       400:
- *         description: 유효성 검사 실패 (예: 필드 형식 오류)
+ *         description: "유효성 검사 실패 (예: 필드 형식 오류)"
  *       409:
  *         description: 이메일, 닉네임, 또는 전화번호 중복
  *       500:
@@ -184,7 +184,7 @@ router.post("/signup", validateSignup, async (req: Request, res: Response) => {
  *                       type: string
  *                       example: "gildong_hong"
  *       400:
- *         description: 유효성 검사 실패. 응답 본문에 어떤 필드가 문제인지 명시됩니다.
+ *         description: "유효성 검사 실패. 응답 본문에 어떤 필드가 문제인지 명시됩니다."
  *         content:
  *           application/json:
  *             schema:
