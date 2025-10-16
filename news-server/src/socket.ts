@@ -1,5 +1,6 @@
 import { Server, Socket } from "socket.io";
 import jwt from "jsonwebtoken";
+import pool from "./config/db";
 
 // 소켓에 사용자 정보를 추가하기 위한 타입 확장
 interface AuthenticatedSocket extends Socket {
@@ -43,14 +44,33 @@ const initializeSocket = (io: Server) => {
     });
 
     // [수정] author를 클라이언트에서 받지 않고, 인증된 토큰의 사용자 정보를 사용
-    socket.on("send_message", (data: { room: string; message: string; }) => {
+    socket.on("send_message", async (data: { room: string; message: string; }) => {
       if (!user) return; // 타입스크립트용 안전장치
 
+      const topicId = parseInt(data.room, 10);
+      if (isNaN(topicId)) {
+        console.error(`[Socket] Invalid room format received: ${data.room}`);
+        socket.emit("error_message", { message: "Invalid room format." });
+        return;
+      }
+
+      // 1. 다른 사용자에게 메시지 실시간 전송
       socket.to(data.room).emit("receive_message", {
         message: data.message,
         author: user.name, // 토큰에서 가져온 사용자 이름
       });
-      console.log(`[Socket] Message from ${user.name} to room ${data.room}: ${data.message}`);
+
+      // 2. 받은 메시지를 DB에 저장
+      try {
+        await pool.query(
+          "INSERT INTO tn_comment (topic_id, user_id, content) VALUES (?, ?, ?)",
+          [topicId, user.userId, data.message]
+        );
+        console.log(`[DB] Message from ${user.name} to room ${data.room} saved to database.`);
+      } catch (dbError) {
+        console.error(`[DB] Failed to save message for room ${data.room}:`, dbError);
+        socket.emit("error_message", { message: "Failed to save message." });
+      }
     });
 
     socket.on("disconnect", () => {

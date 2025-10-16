@@ -1,13 +1,62 @@
-/*
 import express from "express";
-import { pool } from "../config/db";
-import { userAuth } from "../middleware/userAuth";
+import pool from "../config/db";
 
 const router = express.Router({ mergeParams: true });
 
-// GET comments for a topic
+/**
+ * @swagger
+ * /api/topics/{topicId}/comments:
+ *   get:
+ *     tags:
+ *       - Comments
+ *     summary: 특정 토픽의 댓글(채팅) 목록 조회
+ *     description: 특정 토픽 ID에 해당하는 댓글 목록을 오래된 순으로 조회합니다. 페이지네이션을 지원합니다.
+ *     parameters:
+ *       - in: path
+ *         name: topicId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: "댓글을 조회할 토픽의 ID"
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *         description: "한 번에 가져올 댓글 수"
+ *       - in: query
+ *         name: offset
+ *         schema:
+ *           type: integer
+ *           default: 0
+ *         description: "건너뛸 댓글 수 (페이지네이션용)"
+ *     responses:
+ *       200:
+ *         description: 댓글 목록
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                   content:
+ *                     type: string
+ *                   created_at:
+ *                     type: string
+ *                     format: date-time
+ *                   nickname:
+ *                     type: string
+ *                     description: "작성자 닉네임"
+ */
+import { authenticateUser, AuthenticatedRequest } from "../middleware/userAuth";
+
 router.get("/", async (req, res) => {
   const { topicId } = req.params;
+  const limit = parseInt(req.query.limit as string || '50', 10);
+  const offset = parseInt(req.query.offset as string || '0', 10);
 
   try {
     const [rows] = await pool.query(
@@ -16,9 +65,11 @@ router.get("/", async (req, res) => {
       FROM tn_comment c
       JOIN tn_user u ON c.user_id = u.id
       WHERE c.topic_id = ? AND c.status = 'ACTIVE'
-      ORDER BY c.created_at DESC
+      ORDER BY c.created_at ASC
+      LIMIT ?
+      OFFSET ?
     `,
-      [topicId]
+      [topicId, limit, offset]
     );
     res.json(rows);
   } catch (error) {
@@ -27,43 +78,146 @@ router.get("/", async (req, res) => {
   }
 });
 
-// POST a new comment
-router.post("/", userAuth, async (req, res) => {
-  const { topicId } = req.params;
-  const { content } = req.body;
-  const userId = req.user?.id;
-
-  if (!content) {
-    return res.status(400).json({ message: "댓글 내용이 필요합니다." });
-  }
-
-  if (!userId) {
-    return res.status(401).json({ message: "인증되지 않은 사용자입니다." });
-  }
+/**
+ * @swagger
+ * /api/comments/{commentId}:
+ *   delete:
+ *     tags:
+ *       - Comments
+ *     summary: 내 댓글 삭제
+ *     description: 사용자가 자신이 작성한 댓글을 삭제합니다. (상태를 DELETED로 변경)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: "삭제할 댓글의 ID"
+ *     responses:
+ *       200:
+ *         description: 댓글 삭제 성공
+ *       401:
+ *         description: 인증 실패
+ *       403:
+ *         description: 삭제 권한 없음
+ *       404:
+ *         description: 댓글을 찾을 수 없음
+ */
+router.delete("/:commentId", authenticateUser, async (req: AuthenticatedRequest, res) => {
+  const { commentId } = req.params;
+  const userId = req.user?.userId;
 
   try {
-    const [result] = await pool.execute("INSERT INTO tn_comment (topic_id, user_id, content) VALUES (?, ?, ?)", [
-      topicId,
-      userId,
-      content,
-    ]);
-
-    const [rows] = await pool.query(
-      `
-        SELECT c.id, c.content, c.created_at, u.nickname
-        FROM tn_comment c
-        JOIN tn_user u ON c.user_id = u.id
-        WHERE c.id = ?
-    `,
-      [(result as any).insertId]
+    // Check if the comment exists and belongs to the user
+    const [comments]: any = await pool.query(
+      "SELECT user_id FROM tn_comment WHERE id = ?",
+      [commentId]
     );
 
-    res.status(201).json((rows as any)[0]);
+    if (comments.length === 0) {
+      return res.status(404).json({ message: "댓글을 찾을 수 없습니다." });
+    }
+
+    if (comments[0].user_id !== userId) {
+      return res.status(403).json({ message: "댓글을 삭제할 권한이 없습니다." });
+    }
+
+    // Soft delete the comment
+    await pool.query(
+      "UPDATE tn_comment SET status = 'DELETED' WHERE id = ?",
+      [commentId]
+    );
+
+    res.status(200).json({ message: "댓글이 삭제되었습니다." });
   } catch (error) {
-    console.error("Error posting comment:", error);
-    res.status(500).json({ message: "댓글을 작성하는 중 오류가 발생했습니다." });
+    console.error("Error deleting comment:", error);
+    res.status(500).json({ message: "댓글을 삭제하는 중 오류가 발생했습니다." });
+  }
+});
+
+/**
+ * @swagger
+ * /api/comments/{commentId}/report:
+ *   post:
+ *     tags:
+ *       - Comments
+ *     summary: 댓글 신고
+ *     description: 특정 댓글을 신고합니다. 한 사용자는 같은 댓글을 한 번만 신고할 수 있습니다. 누적 신고가 5회 이상이면 해당 댓글은 HIDDEN 상태가 됩니다.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: "신고할 댓글의 ID"
+ *     responses:
+ *       200:
+ *         description: 신고 처리 완료 (이미 신고했거나, 신고가 누적되어 숨김 처리된 경우 포함)
+ *       401:
+ *         description: 인증 실패
+ *       404:
+ *         description: 댓글을 찾을 수 없음
+ */
+router.post("/:commentId/report", authenticateUser, async (req: AuthenticatedRequest, res: Response) => {
+  const { commentId } = req.params;
+  const userId = req.user?.userId;
+  const REPORT_THRESHOLD = 5;
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // 1. 신고 기록 테이블에 추가 (중복 신고 방지)
+    const [logResult]: any = await connection.query(
+      "INSERT IGNORE INTO tn_comment_report_log (comment_id, user_id) VALUES (?, ?)",
+      [commentId, userId]
+    );
+
+    // 이미 신고한 경우, 아무 작업도 하지 않고 성공 응답
+    if (logResult.affectedRows === 0) {
+      await connection.rollback();
+      return res.status(200).json({ message: "이미 신고한 댓글입니다." });
+    }
+
+    // 2. 신고 카운트 증가
+    await connection.query(
+      "UPDATE tn_comment SET report_count = report_count + 1 WHERE id = ?",
+      [commentId]
+    );
+
+    // 3. 신고 횟수 확인
+    const [comments]: any = await connection.query(
+      "SELECT report_count FROM tn_comment WHERE id = ?",
+      [commentId]
+    );
+
+    if (comments.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ message: "댓글을 찾을 수 없습니다." });
+    }
+
+    // 4. 임계값 도달 시 상태 변경
+    if (comments[0].report_count >= REPORT_THRESHOLD) {
+      await connection.query(
+        "UPDATE tn_comment SET status = 'HIDDEN' WHERE id = ?",
+        [commentId]
+      );
+    }
+
+    await connection.commit();
+    res.status(200).json({ message: "신고가 접수되었습니다." });
+
+  } catch (error) {
+    await connection.rollback();
+    console.error("Error reporting comment:", error);
+    res.status(500).json({ message: "댓글을 신고하는 중 오류가 발생했습니다." });
+  } finally {
+    connection.release();
   }
 });
 
 export default router;
-*/
