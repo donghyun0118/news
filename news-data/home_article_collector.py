@@ -96,7 +96,10 @@ def main():
 
     for feed_info in FEEDS:
         try:
-            parsed_feed = feedparser.parse(feed_info['url'])
+            response = requests.get(feed_info['url'], timeout=15)
+            # 인코딩을 UTF-8로 명시하여 깨짐 현상 방지
+            response.encoding = 'utf-8'
+            parsed_feed = feedparser.parse(response.text)
             for item in parsed_feed.entries:
                 if not item.get('link') or not item.get('title'):
                     continue
