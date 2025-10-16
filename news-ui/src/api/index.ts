@@ -3,9 +3,7 @@ import axios from "axios";
 import type { Article, Topic } from "../types";
 
 // API ?쒕쾭??湲곕낯 二쇱냼瑜??ㅼ젙?⑸땲??
-export const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL ?? "",
-});
+export const apiClient = axios.create({});
 
 // GET /api/topics
 export const fetchPublishedTopics = async (): Promise<Topic[]> => {
