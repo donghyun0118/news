@@ -10,6 +10,8 @@ type ExistingUserRow = RowDataPacket & {
   phone: string | null;
 };
 
+import { validateSignup } from "../middleware/signupValidation";
+
 const router = Router();
 
 /**
@@ -31,6 +33,7 @@ const router = Router();
  *               - nickname
  *               - email
  *               - password
+ *               - password_confirmation
  *             properties:
  *               name:
  *                 type: string
@@ -45,10 +48,14 @@ const router = Router();
  *               password:
  *                 type: string
  *                 format: password
- *                 example: "password123"
+ *                 example: "Password123!"
+ *               password_confirmation:
+ *                 type: string
+ *                 format: password
+ *                 example: "Password123!"
  *               phone:
  *                 type: string
- *                 example: "010-1234-5678"
+ *                 example: "01012345678"
  *     responses:
  *       201:
  *         description: 회원가입 성공
@@ -61,23 +68,19 @@ const router = Router();
  *                   type: string
  *                   example: "회원가입이 완료되었습니다."
  *       400:
- *         description: 필수 입력 필드 누락
+ *         description: 유효성 검사 실패 (예: 필드 형식 오류)
  *       409:
  *         description: 이메일, 닉네임, 또는 전화번호 중복
  *       500:
  *         description: 서버 내부 오류
  */
-router.post("/signup", async (req: Request, res: Response) => {
+router.post("/signup", validateSignup, async (req: Request, res: Response) => {
   const { name, nickname, email, password, phone } = req.body ?? {};
 
-  const trimmedName = typeof name === "string" ? name.trim() : "";
-  const trimmedNickname = typeof nickname === "string" ? nickname.trim() : "";
-  const trimmedEmail = typeof email === "string" ? email.trim() : "";
-  const trimmedPhone = typeof phone === "string" ? phone.trim() : "";
-
-  if (!trimmedName || !trimmedNickname || !trimmedEmail || typeof password !== "string" || password.length === 0) {
-    return res.status(400).json({ message: "필수 정보를 모두 입력해 주세요." });
-  }
+  const trimmedName = name.trim();
+  const trimmedNickname = nickname.trim();
+  const trimmedEmail = email.trim();
+  const trimmedPhone = phone ? phone.trim() : "";
 
   try {
     const conditions: string[] = ["email = ?", "nickname = ?"];
@@ -181,18 +184,27 @@ router.post("/signup", async (req: Request, res: Response) => {
  *                       type: string
  *                       example: "gildong_hong"
  *       400:
- *         description: 이메일 또는 비밀번호 누락
+ *         description: 유효성 검사 실패. 응답 본문에 어떤 필드가 문제인지 명시됩니다.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 field:
+ *                   type: string
+ *                   example: "email"
+ *                 message:
+ *                   type: string
+ *                   example: "올바른 이메일 형식이 아닙니다."
  *       401:
  *         description: 잘못된 이메일 또는 비밀번호
  *       500:
  *         description: 서버 내부 오류
  */
-router.post("/login", async (req: Request, res: Response) => {
-  const { email, password } = req.body;
+import { validateLogin } from "../middleware/loginValidation";
 
-  if (!email || !password) {
-    return res.status(400).json({ message: "이메일과 비밀번호를 모두 입력해주세요." });
-  }
+router.post("/login", validateLogin, async (req: Request, res: Response) => {
+  const { email, password } = req.body;
 
   try {
     const [users]: any = await pool.query("SELECT * FROM tn_user WHERE email = ?", [email]);
