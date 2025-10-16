@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import time
 from datetime import datetime, timezone, timedelta
 import feedparser
@@ -149,22 +150,19 @@ def main():
         cnx = mysql.connector.connect(**DB_CONFIG)
         cursor = cnx.cursor()
 
-        # 중복 제거
-        urls_to_check = [article['url'] for article in all_articles]
-        cursor.execute(f"SELECT url FROM tn_home_article WHERE url IN ({('%s,' * len(urls_to_check))[:-1]})", tuple(urls_to_check))
-        existing_urls = {row[0] for row in cursor.fetchall()}
-        new_articles = [a for a in all_articles if a['url'] not in existing_urls]
-        print(f"{len(new_articles)}개의 새로운 기사 발견.")
+        print(f"{len(all_articles)}개의 기사를 DB에 저장 시도합니다.")
 
-        if new_articles:
-            insert_query = "INSERT INTO tn_home_article (source, source_domain, category, title, url, published_at, thumbnail_url) VALUES (%s, %s, %s, %s, %s, %s, %s)"
-            data_to_insert = [(a['source'], a['source_domain'], a['category'], a['title'], a['url'], a['published_at'], a['thumbnail_url']) for a in new_articles]
+        if all_articles:
+            # INSERT IGNORE를 사용하여 DB가 중복을 처리하도록 합니다.
+            insert_query = "INSERT IGNORE INTO tn_home_article (source, source_domain, category, title, url, published_at, thumbnail_url) VALUES (%s, %s, %s, %s, %s, %s, %s)"
+            data_to_insert = [(a['source'], a['source_domain'], a['category'], a['title'], a['url'], a['published_at'], a['thumbnail_url']) for a in all_articles]
             cursor.executemany(insert_query, data_to_insert)
             cnx.commit()
-            print(f"{cursor.rowcount}개 기사 저장 완료.")
+            print(f"{cursor.rowcount}개 기사 신규 저장 완료.")
 
     except mysql.connector.Error as err:
         print(f"DB 오류 발생: {err}")
+        sys.exit(1)
     finally:
         if 'cnx' in locals() and cnx.is_connected():
             cursor.close()
