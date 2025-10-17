@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 
 // Extend the Express Request interface to include the user property
 export interface AuthenticatedRequest extends Request {
-  user?: { userId: number; username: string };
+  user?: { userId: number; name: string };
 }
 
 export const authenticateUser = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
@@ -21,7 +21,7 @@ export const authenticateUser = (req: AuthenticatedRequest, res: Response, next:
     if (jwtSecret === 'default_fallback_secret') {
         console.warn('Warning: USER_JWT_SECRET environment variable is not set. Using a default secret key for development.');
     }
-    const decoded = jwt.verify(token, jwtSecret) as { userId: number; username: string };
+    const decoded = jwt.verify(token, jwtSecret) as { userId: number; name: string };
     req.user = decoded;
     next();
   } catch (error) {
