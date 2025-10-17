@@ -1,3 +1,5 @@
+console.log('Application starting...');
+
 import dotenv from "dotenv";
 dotenv.config();
 
