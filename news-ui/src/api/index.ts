@@ -21,7 +21,7 @@ export const fetchTopicDetails = async (topicId: string): Promise<{ topic: Topic
 
 // GET /admin/topics/suggested
 export const fetchSuggestedTopics = async (): Promise<Topic[]> => {
-  const response = await apiClient.get("/admin/topics/suggested");
+  const response = await apiClient.get("/api/admin/topics/suggested");
   return response.data;
 };
 

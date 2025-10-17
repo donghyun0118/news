@@ -1,13 +1,11 @@
-
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useUserAuth } from '../context/UserAuthContext';
 
-interface Comment {
+interface ChatMessage {
   id: number;
   content: string;
   created_at: string;
-  username: string;
+  nickname: string; // The API returns nickname, not username
 }
 
 interface CommentsProps {
@@ -15,67 +13,33 @@ interface CommentsProps {
 }
 
 const Comments: React.FC<CommentsProps> = ({ topicId }) => {
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [newComment, setNewComment] = useState('');
-  const { user } = useUserAuth();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
 
   useEffect(() => {
-    const fetchComments = async () => {
+    const fetchMessages = async () => {
+      if (!topicId) return;
       try {
-        const response = await axios.get(`http://localhost:3000/api/topics/${topicId}/comments`);
-        setComments(response.data);
+        // Fetch from the correct, relative path
+        const response = await axios.get(`/api/topics/${topicId}/chat`);
+        setMessages(response.data);
       } catch (error) {
-        console.error('Error fetching comments:', error);
+        console.error('Error fetching chat history:', error);
       }
     };
 
-    fetchComments();
+    fetchMessages();
   }, [topicId]);
-
-  const handleSubmitComment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newComment.trim()) return;
-
-    try {
-      const token = localStorage.getItem('user_token');
-      const response = await axios.post(
-        `http://localhost:3000/api/topics/${topicId}/comments`,
-        { content: newComment },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      setComments([response.data, ...comments]);
-      setNewComment('');
-    } catch (error) {
-      console.error('Error posting comment:', error);
-      alert('Failed to post comment. Please make sure you are logged in.');
-    }
-  };
 
   return (
     <div className="comments-section">
-      <h2>Comments</h2>
-      {user ? (
-        <form onSubmit={handleSubmitComment} className="comment-form">
-          <textarea
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-            placeholder="Write a comment..."
-            rows={3}
-          />
-          <button type="submit">Post Comment</button>
-        </form>
-      ) : (
-        <p>Please <a href="/login">login</a> to post a comment.</p>
-      )}
-
+      <h2>실시간 채팅</h2>
+      {/* The form for submitting new messages will be handled by a separate component using WebSockets */}
       <div className="comment-list">
-        {comments.map((comment) => (
-          <div key={comment.id} className="comment-item">
-            <p className="comment-content">{comment.content}</p>
+        {messages.map((msg) => (
+          <div key={msg.id} className="comment-item">
+            <p className="comment-content">{msg.content}</p>
             <small className="comment-meta">
-              by {comment.username} on {new Date(comment.created_at).toLocaleDateString()}
+              by {msg.nickname} on {new Date(msg.created_at).toLocaleDateString()}
             </small>
           </div>
         ))}

@@ -13,7 +13,7 @@ const AdminTopicEditPage = () => {
     // 기존 토픽 정보를 불러와 폼에 채웁니다.
     const fetchTopic = async () => {
       try {
-        const response = await axios.get(`http://localhost:3000/admin/topics/suggested`);
+        const response = await axios.get(`/api/admin/topics/suggested`);
         const currentTopic = response.data.find((t: Topic) => t.id === Number(topicId));
         if (currentTopic) {
           setTopic({
@@ -36,7 +36,7 @@ const AdminTopicEditPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await axios.patch(`http://localhost:3000/admin/topics/${topicId}/publish`, {
+      await axios.patch(`/api/admin/topics/${topicId}/publish`, {
         displayName: topic.display_name,
         searchKeywords: topic.search_keywords,
         summary: topic.summary || "",

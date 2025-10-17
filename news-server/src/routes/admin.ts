@@ -97,7 +97,7 @@ router.get("/topics/suggested", async (req: Request, res: Response) => {
 router.get("/topics/published", async (req: Request, res: Response) => {
   try {
     const [rows] = await pool.query(
-      "SELECT id, display_name, published_at FROM tn_topic WHERE status = 'published' ORDER BY published_at DESC"
+      "SELECT id, display_name, published_at FROM tn_topic WHERE status = 'published' AND topic_type = 'CONTENT' ORDER BY published_at DESC"
     );
     res.json(rows);
   } catch (error) {

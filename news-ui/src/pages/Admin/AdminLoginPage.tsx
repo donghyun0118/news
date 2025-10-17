@@ -24,7 +24,7 @@ const AdminLoginPage = () => {
     setErrorMessage(null);
     setIsSubmitting(true);
     try {
-      const response = await apiClient.post("/admin/login", { username, password });
+      const response = await apiClient.post("/api/admin/login", { username, password });
       const token = response.data?.token as string | undefined;
       if (!token) {
         throw new Error("토큰이 응답에 없습니다.");

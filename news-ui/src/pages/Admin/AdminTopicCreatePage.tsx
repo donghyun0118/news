@@ -24,7 +24,7 @@ const AdminTopicCreatePage = () => {
     }
 
     try {
-      await axios.post(`http://localhost:3000/admin/topics`, {
+      await axios.post(`/api/admin/topics`, {
         displayName: topic.display_name,
         searchKeywords: topic.search_keywords,
         summary: topic.summary || "",

@@ -90,8 +90,8 @@ const AdminTopicDetailPage = () => {
 
     try {
       const [topicRes, articlesRes] = await Promise.all([
-        axios.get(`http://localhost:3000/api/topics/${topicId}`),
-        axios.get(`http://localhost:3000/admin/topics/${topicId}/articles`),
+        axios.get(`/api/topics/${topicId}`),
+        axios.get(`/api/admin/topics/${topicId}/articles`),
       ]);
 
       setTopic(topicRes.data.topic);
@@ -110,7 +110,7 @@ const AdminTopicDetailPage = () => {
   useEffect(() => {
     const fetchTopicList = async () => {
       try {
-        const response = await axios.get(`http://localhost:3000/admin/topics/published`);
+        const response = await axios.get(`/api/admin/topics/published`);
         setTopicList(response.data);
       } catch (error) {
         console.error("발행 토픽 목록을 불러오지 못했습니다.", error);
@@ -154,7 +154,7 @@ const AdminTopicDetailPage = () => {
       }
 
       try {
-        await axios.patch(`http://localhost:3000/admin/articles/${article.id}/publish`, payload);
+        await axios.patch(`/api/admin/articles/${article.id}/publish`, payload);
         alert("기사 발행이 완료되었습니다.");
         fetchData();
       } catch (error) {
@@ -164,7 +164,7 @@ const AdminTopicDetailPage = () => {
     },
     handleUnpublishArticle: async (articleId: number) => {
       try {
-        await axios.patch(`http://localhost:3000/admin/articles/${articleId}/unpublish`);
+        await axios.patch(`/api/admin/articles/${articleId}/unpublish`);
         alert("기사 발행이 취소되었습니다.");
         fetchData();
       } catch (error) {
@@ -175,7 +175,7 @@ const AdminTopicDetailPage = () => {
     handleDeleteArticle: async (articleId: number) => {
       if (!window.confirm("이 기사를 후보 목록에서 삭제할까요?")) return;
       try {
-        await axios.patch(`http://localhost:3000/admin/articles/${articleId}/delete`);
+        await axios.patch(`/api/admin/articles/${articleId}/delete`);
         alert("후보 기사에서 삭제했습니다.");
         fetchData();
       } catch (error) {
@@ -185,7 +185,7 @@ const AdminTopicDetailPage = () => {
     },
     handleFeatureArticle: async (articleId: number) => {
       try {
-        await axios.patch(`http://localhost:3000/admin/articles/${articleId}/feature`);
+        await axios.patch(`/api/admin/articles/${articleId}/feature`);
         alert("대표 기사로 지정했습니다.");
         fetchData();
       } catch (error) {
@@ -207,7 +207,7 @@ const AdminTopicDetailPage = () => {
         payload.searchKeywords = trimmed;
       }
       try {
-        const response = await axios.post(`http://localhost:3000/admin/topics/${topicId}/recollect`, payload);
+        const response = await axios.post(`/api/admin/topics/${topicId}/recollect`, payload);
         if (payload.searchKeywords) {
           setTopic((prev) => (prev ? { ...prev, search_keywords: payload.searchKeywords } : prev));
         } else if (response.data?.searchKeywords) {
@@ -224,7 +224,7 @@ const AdminTopicDetailPage = () => {
       try {
         const left = publishedLeft.map((article) => article.id);
         const right = publishedRight.map((article) => article.id);
-        await axios.patch(`http://localhost:3000/admin/topics/${topicId}/articles/order`, { left, right });
+        await axios.patch(`/api/admin/topics/${topicId}/articles/order`, { left, right });
         alert("기사 노출 순서를 저장했습니다.");
       } catch (error) {
         console.error(error);
@@ -235,7 +235,7 @@ const AdminTopicDetailPage = () => {
       if (!topicId) return;
       if (!window.confirm("이 토픽을 보관 처리할까요? (사용자 화면에서 숨겨집니다)")) return;
       try {
-        await axios.patch(`http://localhost:3000/admin/topics/${topicId}/archive`);
+        await axios.patch(`/api/admin/topics/${topicId}/archive`);
         alert("토픽을 보관 처리했습니다.");
         navigate("/admin");
       } catch (error) {

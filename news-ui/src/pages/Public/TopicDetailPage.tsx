@@ -36,7 +36,7 @@ const TopicDetailPage = () => {
     setIsLoading(true);
     setErrorMessage(null);
     try {
-      const response = await axios.get(`http://localhost:3000/api/topics/${topicId}`);
+      const response = await axios.get(`/api/topics/${topicId}`);
       setTopic(response.data.topic);
       setArticles(response.data.articles ?? []);
     } catch (error) {

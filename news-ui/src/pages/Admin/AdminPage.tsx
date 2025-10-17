@@ -59,8 +59,8 @@ export default function AdminPage() {
   const fetchData = async () => {
     try {
       const [suggestedRes, publishedRes] = await Promise.all([
-        axios.get("http://localhost:3000/admin/topics/suggested"),
-        axios.get("http://localhost:3000/admin/topics/published"),
+        axios.get("/api/admin/topics/suggested"),
+        axios.get("/api/admin/topics/published"),
       ]);
       setSuggestedTopics(suggestedRes.data);
       setPublishedTopics(publishedRes.data);
@@ -75,7 +75,7 @@ export default function AdminPage() {
 
   const handleReject = async (topicId: number) => {
     try {
-      await axios.patch(`http://localhost:3000/admin/topics/${topicId}/reject`);
+      await axios.patch(`/api/admin/topics/${topicId}/reject`);
       alert(`토픽 #${topicId}을(를) 거절했습니다.`);
       fetchData();
     } catch (error) {

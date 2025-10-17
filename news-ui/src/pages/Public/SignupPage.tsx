@@ -259,67 +259,93 @@ const signupPageStyles = `
 `;
 
 const SignupPage: React.FC = () => {
-  const [name, setName] = useState("");
-  const [nickname, setNickname] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState("");
+  const [formData, setFormData] = useState({
+    name: "",
+    nickname: "",
+    email: "",
+    phone: "",
+    password: "",
+    password_confirmation: "",
+  });
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [apiError, setApiError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
   const styles = useMemo(() => <style>{signupPageStyles}</style>, []);
 
+  const validateField = (name: string, value: string) => {
+    switch (name) {
+      case "email":
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? "" : "이메일 형식에 맞지 않습니다.";
+      case "password":
+        return /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{10,16}$/.test(value)
+          ? ""
+          : "영문+숫자+특수문자 10자~16자 사이로 입력해주세요.";
+      case "password_confirmation":
+        return value === formData.password ? "" : "비밀번호가 일치하지 않습니다.";
+      case "name":
+        return /^[a-zA-Z가-힣]{2,}$/.test(value) ? "" : "이름은 2자 이상의 한글 또는 영문이어야 합니다.";
+      case "nickname":
+        return /^[a-zA-Z0-9가-힣]{3,10}$/.test(value) ? "" : "닉네임은 3~10자의 한글, 영문, 숫자만 사용 가능합니다.";
+      case "phone":
+        return /^\d+$/.test(value) ? "" : "휴대폰 번호는 숫자만 입력해주세요.";
+      default:
+        return "";
+    }
+  };
+
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = event.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    const error = validateField(name, value);
+    setErrors((prev) => ({ ...prev, [name]: error }));
+  };
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setError("");
+    setApiError("");
 
-    if (password !== confirmPassword) {
-      setError("비밀번호가 일치하지 않습니다.");
-      return;
+    let hasErrors = false;
+    const newErrors: Record<string, string> = {};
+    for (const key in formData) {
+      const error = validateField(key, formData[key as keyof typeof formData]);
+      if (error) {
+        newErrors[key] = error;
+        hasErrors = true;
+      }
     }
 
-    const trimmedName = name.trim();
-    const trimmedNickname = nickname.trim();
-    const trimmedEmail = email.trim();
-    const trimmedPhone = phone.trim();
+    setErrors(newErrors);
 
-    if (!trimmedName || !trimmedNickname || !trimmedEmail) {
-      setError("필수 정보를 모두 입력해 주세요.");
+    if (hasErrors) {
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const payload: Record<string, string> = {
-        name: trimmedName,
-        nickname: trimmedNickname,
-        email: trimmedEmail,
-        password,
-      };
-
-      if (trimmedPhone) {
-        payload.phone = trimmedPhone;
-      }
-
-      const response = await axios.post("http://localhost:3000/user/signup", payload);
+      const response = await axios.post("/api/auth/signup", formData);
 
       if (response.status === 201) {
         toast.success("회원가입이 완료되었습니다. 2초 후 로그인 페이지로 이동합니다.");
         setTimeout(() => {
           navigate("/login");
-        }, 2000); // 2초 지연
+        }, 2000);
         return;
       }
-
-      setError("회원가입을 완료할 수 없습니다. 잠시 후 다시 시도해 주세요.");
     } catch (err: unknown) {
       if (axios.isAxiosError(err) && err.response) {
-        setError(err.response.data.message || "회원가입 중 오류가 발생했습니다.");
+        const { field, message } = err.response.data;
+        if (field) {
+          setErrors((prev) => ({ ...prev, [field]: message }));
+        } else {
+          setApiError(message || "회원가입 중 오류가 발생했습니다.");
+        }
       } else {
-        setError("예상치 못한 오류가 발생했습니다.");
+        setApiError("예상치 못한 오류가 발생했습니다.");
       }
     } finally {
       setIsLoading(false);
@@ -353,94 +379,47 @@ const SignupPage: React.FC = () => {
             <p className="dark-signup-card-subtitle">필수 정보를 입력하고 NEWSROUND1의 다음 라운드에 참여해 보세요.</p>
           </header>
 
-          {error && (
+          {apiError && (
             <div className="dark-signup-error" role="alert">
-              {error}
+              {apiError}
             </div>
           )}
 
-          <form className="dark-signup-form-fields" onSubmit={handleSubmit}>
+          <form className="dark-signup-form-fields" onSubmit={handleSubmit} noValidate>
             <div className="dark-signup-field">
               <label htmlFor="name">이름</label>
-              <input
-                id="name"
-                type="text"
-                className="dark-signup-input"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="실명을 입력하세요"
-                autoComplete="name"
-                required
-              />
+              <input id="name" name="name" type="text" className="dark-signup-input" value={formData.name} onChange={handleChange} placeholder="실명을 입력하세요" autoComplete="name" required />
+              {errors.name && <span style={{ color: 'red', fontSize: '0.8rem' }}>{errors.name}</span>}
             </div>
 
             <div className="dark-signup-field">
               <label htmlFor="nickname">닉네임</label>
-              <input
-                id="nickname"
-                type="text"
-                className="dark-signup-input"
-                value={nickname}
-                onChange={(event) => setNickname(event.target.value)}
-                placeholder="커뮤니티에서 사용할 이름"
-                autoComplete="nickname"
-                required
-              />
+              <input id="nickname" name="nickname" type="text" className="dark-signup-input" value={formData.nickname} onChange={handleChange} placeholder="커뮤니티에서 사용할 이름" autoComplete="nickname" required />
+              {errors.nickname && <span style={{ color: 'red', fontSize: '0.8rem' }}>{errors.nickname}</span>}
             </div>
 
             <div className="dark-signup-field">
               <label htmlFor="email">이메일</label>
-              <input
-                id="email"
-                type="email"
-                className="dark-signup-input"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="example@email.com"
-                autoComplete="email"
-                required
-              />
+              <input id="email" name="email" type="email" className="dark-signup-input" value={formData.email} onChange={handleChange} placeholder="example@email.com" autoComplete="email" required />
+              {errors.email && <span style={{ color: 'red', fontSize: '0.8rem' }}>{errors.email}</span>}
             </div>
 
             <div className="dark-signup-field">
               <label htmlFor="phone">휴대폰 번호</label>
-              <input
-                id="phone"
-                type="tel"
-                className="dark-signup-input"
-                value={phone}
-                onChange={(event) => setPhone(event.target.value)}
-                placeholder="하이픈 없이 숫자만 입력"
-                autoComplete="tel"
-              />
+              <input id="phone" name="phone" type="tel" className="dark-signup-input" value={formData.phone} onChange={handleChange} placeholder="하이픈 없이 숫자만 입력" autoComplete="tel" required />
+              {errors.phone && <span style={{ color: 'red', fontSize: '0.8rem' }}>{errors.phone}</span>}
             </div>
 
             <div className="dark-signup-field">
               <label htmlFor="password">비밀번호</label>
-              <input
-                id="password"
-                type="password"
-                className="dark-signup-input"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="영문, 숫자를 조합해 입력"
-                autoComplete="new-password"
-                required
-              />
+              <input id="password" name="password" type="password" className="dark-signup-input" value={formData.password} onChange={handleChange} placeholder="영문, 숫자, 특수문자 조합" autoComplete="new-password" required />
+              {errors.password && <span style={{ color: 'red', fontSize: '0.8rem' }}>{errors.password}</span>}
             </div>
 
             <div className="dark-signup-field">
-              <label htmlFor="confirm-password">비밀번호 확인</label>
-              <input
-                id="confirm-password"
-                type="password"
-                className="dark-signup-input"
-                value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-                placeholder="비밀번호를 한 번 더 입력"
-                autoComplete="new-password"
-                required
-              />
+              <label htmlFor="password_confirmation">비밀번호 확인</label>
+              <input id="password_confirmation" name="password_confirmation" type="password" className="dark-signup-input" value={formData.password_confirmation} onChange={handleChange} placeholder="비밀번호를 한 번 더 입력" autoComplete="new-password" required />
+              {errors.password_confirmation && <span style={{ color: 'red', fontSize: '0.8rem' }}>{errors.password_confirmation}</span>}
             </div>
 
             <button className="dark-signup-button" type="submit" disabled={isLoading}>
