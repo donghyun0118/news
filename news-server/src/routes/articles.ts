@@ -43,8 +43,8 @@ const addFaviconUrl = (article: any) => ({
  *   get:
  *     tags:
  *       - Articles
- *     summary: 카테고리별 최신 기사 목록 조회
- *     description: 특정 카테고리에 해당하는 기사 목록을 최신순으로 조회합니다.
+ *     summary: "카테고리별 최신 기사 목록 조회"
+ *     description: "특정 카테고리에 해당하는 기사 목록을 최신순으로 조회합니다."
  *     parameters:
  *       - in: query
  *         name: name
@@ -66,7 +66,7 @@ const addFaviconUrl = (article: any) => ({
  *         description: "건너뛸 기사 수 (페이지네이션용)"
  *     responses:
  *       200:
- *         description: 해당 카테고리의 기사 목록
+ *         description: "해당 카테고리의 기사 목록"
  *         content:
  *           application/json:
  *             schema:
@@ -98,8 +98,8 @@ router.get("/by-category", async (req: Request, res: Response) => {
  *   get:
  *     tags:
  *       - Articles
- *     summary: 언론사별 최신 기사 목록 조회
- *     description: 특정 언론사에 해당하는 기사 목록을 최신순으로 조회합니다.
+ *     summary: "언론사별 최신 기사 목록 조회"
+ *     description: "특정 언론사에 해당하는 기사 목록을 최신순으로 조회합니다."
  *     parameters:
  *       - in: query
  *         name: name
@@ -121,7 +121,7 @@ router.get("/by-category", async (req: Request, res: Response) => {
  *         description: "건너뛸 기사 수 (페이지네이션용)"
  *     responses:
  *       200:
- *         description: 해당 언론사의 기사 목록
+ *         description: "해당 언론사의 기사 목록"
  *         content:
  *           application/json:
  *             schema:
@@ -153,7 +153,7 @@ router.get("/by-source", async (req: Request, res: Response) => {
  *   get:
  *     tags:
  *       - Articles
- *     summary: 인기 기사 목록 조회
+ *     summary: "인기 기사 목록 조회"
  *     description: "최근 3일간의 기사들을 대상으로, 조회수(1점)와 추천수(3점)를 합산한 인기 점수가 높은 순으로 10개의 목록을 조회합니다. 카테고리별 조회를 지원합니다."
  *     parameters:
  *       - in: query
@@ -163,7 +163,7 @@ router.get("/by-source", async (req: Request, res: Response) => {
  *         description: "조회할 카테고리 (미지정 시 전체 카테고리 대상)"
  *     responses:
  *       200:
- *         description: 인기 기사 목록
+ *         description: "인기 기사 목록"
  *         content:
  *           application/json:
  *             schema:
@@ -219,7 +219,7 @@ router.get("/popular", async (req: Request, res: Response) => {
  *   post:
  *     tags:
  *       - Articles
- *     summary: 기사 추천 또는 추천 취소 (토글)
+ *     summary: "기사 추천 또는 추천 취소 (토글)"
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -230,9 +230,9 @@ router.get("/popular", async (req: Request, res: Response) => {
  *           type: integer
  *     responses:
  *       200:
- *         description: 추천 취소 성공
+ *         description: "추천 취소 성공"
  *       201:
- *         description: 추천 성공
+ *         description: "추천 성공"
  */
 router.post("/:articleId/like", authenticateUser, async (req: AuthenticatedRequest, res: Response) => {
   const articleId = req.params.articleId;
@@ -272,7 +272,7 @@ router.post("/:articleId/like", authenticateUser, async (req: AuthenticatedReque
  *   post:
  *     tags:
  *       - Articles
- *     summary: 기사 조회수 1 증가
+ *     summary: "기사 조회수 1 증가"
  *     parameters:
  *       - in: path
  *         name: articleId
@@ -281,7 +281,7 @@ router.post("/:articleId/like", authenticateUser, async (req: AuthenticatedReque
  *           type: integer
  *     responses:
  *       200:
- *         description: 조회수 증가 성공
+ *         description: "조회수 증가 성공"
  */
 router.post("/:articleId/view", optionalAuthenticateUser, async (req: AuthenticatedRequest, res: Response) => {
   const { articleId } = req.params;
