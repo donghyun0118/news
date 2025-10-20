@@ -62,7 +62,7 @@ if (JOB_SECRET) {
         console.log('Starting popularity score calculation job via API...');
         res.status(202).json({ message: "Popularity score calculation job started." });
 
-        const scriptPath = path.join(__dirname, "../../news-data/popularity_calculator.py");
+        const scriptPath = path.join(__dirname, "../../../news-data/popularity_calculator.py");
         const pythonProcess = spawn("python3", ["-u", scriptPath]);
 
         pythonProcess.stdout.on("data", (data) => {
