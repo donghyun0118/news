@@ -86,7 +86,10 @@ def resolve_google_news_url(url):
 
 def scrape_og_image(url):
     try:
-        response = requests.get(url, timeout=5)
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'
+        }
+        response = requests.get(url, headers=headers, timeout=5)
         soup = BeautifulSoup(response.content, 'html.parser')
         og_image = soup.find('meta', property='og:image')
         if og_image and og_image.get('content', '').startswith('http'):
