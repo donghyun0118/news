@@ -1,6 +1,6 @@
 import { Request, Response, Router } from "express";
 import pool from "../config/db";
-import { AuthenticatedRequest, authenticateUser } from "../middleware/userAuth";
+import { AuthenticatedRequest, authenticateUser, optionalAuthenticateUser } from "../middleware/userAuth";
 import { FAVICON_URLS } from "../config/favicons";
 
 const router = Router();
@@ -29,6 +29,33 @@ router.get("/topics", async (req: Request, res: Response) => {
     res.status(500).json({ message: "Server error" });
   } finally {
     if (connection) connection.release();
+  }
+});
+
+/**
+ * @swagger
+ * /api/topics/popular-ranking:
+ *   get:
+ *     tags: [Topics]
+ *     summary: 인기 토픽 순위 조회
+ *     description: "주기적으로 계산된 인기 점수(popularity_score)를 기준으로 상위 10개의 토픽 목록을 반환합니다."
+ *     responses:
+ *       200:
+ *         description: "인기 토픽 목록"
+ */
+router.get("/topics/popular-ranking", async (req: Request, res: Response) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT id, display_name, summary, published_at 
+       FROM tn_topic 
+       WHERE status = 'published' AND topic_type = 'CONTENT'
+       ORDER BY popularity_score DESC, published_at DESC
+       LIMIT 10`
+    );
+    res.json(rows);
+  } catch (error) {
+    console.error("Error fetching popular topics ranking:", error);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
@@ -94,6 +121,72 @@ router.get("/topics/:topicId", async (req: Request, res: Response) => {
     res.json(responseData);
   } catch (error) {
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+/**
+ * @swagger
+ * /api/topics/{topicId}/view:
+ *   post:
+ *     tags: [Topics]
+ *     summary: 토픽 조회수 1 증가
+ *     description: "특정 토픽의 조회수를 1 증가시킵니다. 24시간 내 동일 사용자의 중복 조회는 카운트되지 않습니다."
+ *     parameters:
+ *       - in: path
+ *         name: topicId
+ *         required: true
+ *         schema: { type: "integer" }
+ *         description: "조회수를 증가시킬 토픽의 ID"
+ *     responses:
+ *       200:
+ *         description: "조회수 증가 처리 완료 (중복 포함)"
+ */
+router.post("/topics/:topicId/view", optionalAuthenticateUser, async (req: AuthenticatedRequest, res: Response) => {
+  const { topicId } = req.params;
+  const userId = req.user?.userId;
+  const ip = req.ip;
+  const userIdentifier = userId ? `user_${userId}` : `ip_${ip}`;
+  const cooldownHours = 24;
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [recentViews]: any = await connection.query(
+      `SELECT id FROM tn_topic_view_log 
+       WHERE topic_id = ? AND user_identifier = ? AND created_at >= NOW() - INTERVAL ? HOUR`,
+      [topicId, userIdentifier, cooldownHours]
+    );
+
+    if (recentViews.length > 0) {
+      await connection.rollback();
+      return res.status(200).json({ message: "View already counted within the cooldown period." });
+    }
+
+    await connection.query(
+      "INSERT INTO tn_topic_view_log (topic_id, user_identifier) VALUES (?, ?)",
+      [topicId, userIdentifier]
+    );
+
+    const [updateResult]: any = await connection.query(
+      "UPDATE tn_topic SET view_count = view_count + 1 WHERE id = ?",
+      [topicId]
+    );
+
+    await connection.commit();
+
+    if (updateResult.affectedRows === 0) {
+      return res.status(404).json({ message: "Topic not found." });
+    }
+
+    res.status(200).json({ message: "Topic view count incremented." });
+
+  } catch (error) {
+    await connection.rollback();
+    console.error(`Error incrementing topic view count for topic ${topicId}:`, error);
+    res.status(500).json({ message: "Server error" });
+  } finally {
+    connection.release();
   }
 });
 

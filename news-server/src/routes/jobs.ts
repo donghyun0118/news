@@ -1,9 +1,10 @@
-import { Router, Request, Response } from "express";
+import express, { Router, Request, Response } from "express";
+import { spawn } from "child_process";
+import path from "path";
 import { collectLatestArticles } from "../jobs/collectArticles";
 
-const router = Router();
+const router = express.Router();
 
-// 이 API의 전체 경로는 /api/jobs/trigger-collector/<SECRET> 이 됩니다.
 const JOB_SECRET = process.env.JOB_TRIGGER_SECRET || "";
 
 if (!JOB_SECRET) {
@@ -26,30 +27,55 @@ if (!JOB_SECRET) {
  *           type: string
  *         description: 작업을 실행하기 위한 비밀 키
  *     responses:
- *       200:
- *         description: 작업이 성공적으로 실행되었습니다.
- *       401:
- *         description: 비밀 키가 일치하지 않습니다.
- *       500:
- *         description: 작업 실행 중 오류 발생.
+ *       202:
+ *         description: 작업이 성공적으로 시작되었습니다.
  */
 if (JOB_SECRET) {
-    router.all(`/trigger-collector/${JOB_SECRET}`, async (req: Request, res: Response) => {
+    router.all(`/trigger-collector/${JOB_SECRET}`, (req: Request, res: Response) => {
         console.log('API를 통해 기사 수집 작업을 시작합니다...');
-
-        // 요청을 즉시 반환하고, 실제 작업은 백그라운드에서 계속 실행합니다.
         res.status(202).json({ message: "Article collection job started." });
+        collectLatestArticles();
+    });
+}
 
-        // await를 사용하지 않음으로써, 클라이언트가 응답을 기다리지 않게 합니다.
-        // 디버깅 중이므로, 결과 처리를 잠시 주석 처리합니다.
-        // collectLatestArticles().then(result => {
-        //     if (result.success) {
-        //         console.log(`백그라운드 작업 완료: ${result.articlesAdded}개의 새 기사 추가됨`);
-        //     } else {
-        //         console.error(`백그라운드 작업 실패: ${result.message}`);
-        //     }
-        // });
-        collectLatestArticles(); // 결과 처리 없이 호출만 하도록 변경
+/**
+ * @swagger
+ * /api/jobs/update-popularity/{secret}:
+ *   post:
+ *     tags:
+ *       - Jobs
+ *     summary: 인기 토픽 점수 계산 작업을 트리거합니다.
+ *     description: 외부 스케줄러가 이 API를 주기적으로 호출하여, 모든 토픽의 인기 점수를 다시 계산하고 업데이트합니다.
+ *     parameters:
+ *       - in: path
+ *         name: secret
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: 작업을 실행하기 위한 비밀 키
+ *     responses:
+ *       202:
+ *         description: 작업이 성공적으로 시작되었습니다.
+ */
+if (JOB_SECRET) {
+    router.post(`/update-popularity/${JOB_SECRET}`, (req: Request, res: Response) => {
+        console.log('Starting popularity score calculation job via API...');
+        res.status(202).json({ message: "Popularity score calculation job started." });
+
+        const scriptPath = path.join(__dirname, "../../news-data/popularity_calculator.py");
+        const pythonProcess = spawn("python", ["-u", scriptPath]);
+
+        pythonProcess.stdout.on("data", (data) => {
+            console.log(`[popularity_calculator.py stdout]: ${data.toString().trim()}`);
+        });
+
+        pythonProcess.stderr.on("data", (data) => {
+            console.error(`[popularity_calculator.py stderr]: ${data.toString().trim()}`);
+        });
+
+        pythonProcess.on("close", (code) => {
+            console.log(`Popularity calculator script exited with code ${code}`);
+        });
     });
 }
 

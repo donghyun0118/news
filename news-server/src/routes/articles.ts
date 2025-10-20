@@ -311,7 +311,7 @@ router.post("/:articleId/view", optionalAuthenticateUser, async (req: Authentica
     );
 
     const [updateResult]: any = await connection.query(
-      "UPDATE tn_home_article SET view_count = view_count + 1 WHERE id = ?",
+      "UPDATE tn_article SET view_count = view_count + 1 WHERE id = ?",
       [articleId]
     );
 
