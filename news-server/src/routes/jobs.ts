@@ -58,7 +58,7 @@ if (JOB_SECRET) {
  *         description: 작업이 성공적으로 시작되었습니다.
  */
 if (JOB_SECRET) {
-    router.post(`/update-popularity/${JOB_SECRET}`, (req: Request, res: Response) => {
+    router.all(`/update-popularity/${JOB_SECRET}`, (req: Request, res: Response) => {
         console.log('Starting popularity score calculation job via API...');
         res.status(202).json({ message: "Popularity score calculation job started." });
 
