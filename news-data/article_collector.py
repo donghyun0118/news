@@ -172,7 +172,7 @@ _session_local = threading.local()
 
 def _create_session() -> requests.Session:
     session = requests.Session()
-    session.headers.update({"User-Agent": "DifferentNewsBot/1.0"})
+    session.headers.update({"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36"})
     adapter = HTTPAdapter(max_retries=retries)
     session.mount("http://", adapter)
     session.mount("https://", adapter)
