@@ -103,7 +103,6 @@ def clean_title(title):
     publisher_regex = re.compile(r'\s*[-–—|:]\s*(중앙일보|조선일보|동아일보|한겨레|경향신문|오마이뉴스|joongang|chosun|donga|hani|khan)\s*$', re.I)
     return publisher_regex.sub('', title).strip()
 
-
 def fetch_and_parse_feed(feed_info):
     """단일 RSS 피드를 가져와 파싱하고 기사 목록을 반환합니다."""
     articles = []
@@ -119,6 +118,10 @@ def fetch_and_parse_feed(feed_info):
             final_url = resolve_google_news_url(item.link)
             cleaned_title = clean_title(item.title)
             final_title = html.unescape(cleaned_title)
+            
+            # description 추출 (HTML 태그 제거)
+            description_html = item.get('description', item.get('summary', ''))
+            description_text = re.sub('<[^<]+?>', '', description_html).strip()
 
             published_time = None
             if hasattr(item, 'published_parsed') and item.published_parsed:
@@ -148,7 +151,8 @@ def fetch_and_parse_feed(feed_info):
                 'title': final_title,
                 'url': final_url,
                 'published_at': published_time,
-                'thumbnail_url': thumbnail_url
+                'thumbnail_url': thumbnail_url,
+                'description': description_text # 추가
             })
     except Exception as e:
         print(f"{feed_info['source']}' 피드 처리 실패: {e}")
@@ -185,8 +189,8 @@ def main():
 
         if all_articles:
             # INSERT IGNORE를 사용하여 DB가 중복을 처리하도록 합니다.
-            insert_query = "INSERT IGNORE INTO tn_home_article (source, source_domain, category, title, url, published_at, thumbnail_url) VALUES (%s, %s, %s, %s, %s, %s, %s)"
-            data_to_insert = [(a['source'], a['source_domain'], a['category'], a['title'], a['url'], a['published_at'], a['thumbnail_url']) for a in all_articles]
+            insert_query = "INSERT IGNORE INTO tn_home_article (source, source_domain, category, title, url, published_at, thumbnail_url, description) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"
+            data_to_insert = [(a['source'], a['source_domain'], a['category'], a['title'], a['url'], a['published_at'], a['thumbnail_url'], a['description']) for a in all_articles]
             cursor.executemany(insert_query, data_to_insert)
             cnx.commit()
             print(f"{cursor.rowcount}개 기사 신규 저장 완료.")

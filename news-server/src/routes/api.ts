@@ -190,4 +190,51 @@ router.post("/topics/:topicId/view", optionalAuthenticateUser, async (req: Authe
   }
 });
 
+/**
+ * @swagger
+ * /api/search:
+ *   get:
+ *     tags: [Articles]
+ *     summary: 기사 검색
+ *     description: "검색어(q)를 받아 제목과 설명에서 일치하는 기사를 최신순으로 검색합니다."
+ *     parameters:
+ *       - in: query
+ *         name: q
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: "검색할 키워드"
+ *     responses:
+ *       200:
+ *         description: "검색 결과 목록"
+ */
+router.get("/search", async (req: Request, res: Response) => {
+  const query = req.query.q as string;
+
+  if (!query || query.trim() === '') {
+    return res.status(400).json({ message: "검색어를 입력해주세요." });
+  }
+
+  const searchQuery = `%${query}%`;
+
+  try {
+    const [rows] = await pool.query(
+      `SELECT id, source, source_domain, title, url, published_at, thumbnail_url, description 
+       FROM tn_home_article 
+       WHERE title LIKE ? OR description LIKE ?
+       ORDER BY published_at DESC
+       LIMIT 50`,
+      [searchQuery, searchQuery]
+    );
+    const articlesWithFavicon = (rows as any[]).map(article => ({
+      ...article,
+      favicon_url: FAVICON_URLS[article.source_domain] || null
+    }));
+    res.json(articlesWithFavicon);
+  } catch (error) {
+    console.error("Error searching articles:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 export default router;
