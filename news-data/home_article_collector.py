@@ -10,6 +10,7 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 from dotenv import load_dotenv
+from dateutil.parser import parse as dt_parse
 import concurrent.futures
 
 # .env 파일에서 환경 변수 로드
@@ -126,6 +127,12 @@ def fetch_and_parse_feed(feed_info):
             published_time = None
             if hasattr(item, 'published_parsed') and item.published_parsed:
                 published_time = datetime.fromtimestamp(time.mktime(item.published_parsed))
+            elif hasattr(item, 'published'):
+                try:
+                    # dateutil.parser로 비표준 형식 파싱 시도
+                    published_time = dt_parse(item.published)
+                except (ValueError, TypeError):
+                    published_time = datetime.now(timezone.utc)
             else:
                 published_time = datetime.now(timezone.utc)
 

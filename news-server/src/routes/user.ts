@@ -65,7 +65,7 @@ router.get("/me", authenticateUser, async (req: AuthenticatedRequest, res: Respo
  *     tags:
  *       - User
  *     summary: "내 정보 수정"
- *     description: "현재 로그인된 사용자의 프로필 정보(닉네임, 휴대폰 번호)를 수정합니다."
+ *     description: "현재 로그인된 사용자의 프로필 정보(닉네임, 휴대폰 번호, 프로필 이미지)를 수정합니다."
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -81,6 +81,9 @@ router.get("/me", authenticateUser, async (req: AuthenticatedRequest, res: Respo
  *               phone:
  *                 type: string
  *                 description: "새로운 휴대폰 번호"
+ *               profile_image_url:
+ *                 type: string
+ *                 description: "새로운 프로필 이미지 URL"
  *     responses:
  *       200:
  *         description: "정보 수정 성공"
