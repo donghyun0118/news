@@ -1,4 +1,4 @@
-import { exec } from "child_process";
+import { exec, spawn } from "child_process";
 import express, { Request, Response } from "express";
 import path from "path";
 import pool from "../config/db";
@@ -355,17 +355,17 @@ router.post("/topics", async (req: Request, res: Response) => {
     }
 
     const pythonScriptPath = path.join(__dirname, "../../../news-data/article_collector.py");
-    const command = `python3 "${pythonScriptPath}" ${newTopicId}`;
+    const command = `python3`;
+    const args = ["-u", pythonScriptPath, newTopicId.toString()];
 
-    console.log(`Executing command: ${command}`);
-    exec(command, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Error executing article_collector.py: ${error}`);
-        console.error(`Python stderr: ${stderr}`);
-        return;
-      }
-      console.log(`article_collector.py stdout: ${stdout}`);
-      console.error(`article_collector.py stderr: ${stderr}`);
+    console.log(`Executing: ${command} ${args.join(' ')}`);
+    const pythonProcess = spawn(command, args);
+
+    pythonProcess.stdout.on("data", (data) => {
+      console.log(`[article_collector.py stdout]: ${data.toString().trim()}`);
+    });
+    pythonProcess.stderr.on("data", (data) => {
+      console.error(`[article_collector.py stderr]: ${data.toString().trim()}`);
     });
 
     res
@@ -427,19 +427,31 @@ router.patch("/topics/:topicId/publish", async (req: Request, res: Response) => 
       return res.status(404).json({ message: "Topic not found or already handled." });
     }
 
-    const pythonScriptPath = path.join(__dirname, "../../../news-data/article_collector.py");
-            const command = `python3 "${pythonScriptPath}" ${topicId}`;
+        const pythonScriptPath = path.join(__dirname, "../../../news-data/article_collector.py");
+
+        const command = `python3`;
+
+        const args = ["-u", pythonScriptPath, topicId];
+
     
-            console.log(`Executing command: ${command}`);
-    exec(command, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Error executing article_collector.py: ${error}`);
-        console.error(`Python stderr: ${stderr}`);
-        return;
-      }
-      console.log(`article_collector.py stdout: ${stdout}`);
-      console.error(`article_collector.py stderr: ${stderr}`);
-    });
+
+        console.log(`Executing: ${command} ${args.join(' ')}`);
+
+        const pythonProcess = spawn(command, args);
+
+    
+
+        pythonProcess.stdout.on("data", (data) => {
+
+          console.log(`[article_collector.py stdout]: ${data.toString().trim()}`);
+
+        });
+
+        pythonProcess.stderr.on("data", (data) => {
+
+          console.error(`[article_collector.py stderr]: ${data.toString().trim()}`);
+
+        });
 
     res.json({ message: `Topic ${topicId} has been published. Article collection started in the background.` });
   } catch (error) {

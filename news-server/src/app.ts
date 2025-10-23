@@ -26,6 +26,7 @@ import jobsRouter from "./routes/jobs";
 import userRouter from "./routes/user";
 
 const app: Express = express();
+app.set('trust proxy', 1); // 프록시 뒤의 실제 IP를 req.ip에 기록
 const port = Number(process.env.PORT ?? 3000);
 
 // 전역 미들웨어

@@ -178,11 +178,13 @@ def fetch_and_parse_feed(feed_info):
                     except (ValueError, TypeError):
                         published_time = None
             
+            # 모든 시도가 실패하면 현재 시간으로 대체
             if not published_time:
-                published_time = datetime.now(timezone.utc)
+                published_time = datetime.now()
 
-            # 시간 필터링: 2일 이상 지난 기사는 건너뛰기
-            if published_time < (datetime.now(timezone.utc) - timedelta(days=1)):
+            # 시간 필터링: 비교를 위해 모든 시간 정보를 naive로 통일
+            cutoff_time = datetime.now() - timedelta(days=1)
+            if published_time.replace(tzinfo=None) < cutoff_time:
                 continue
 
             thumbnail_url = None
