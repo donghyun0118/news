@@ -326,6 +326,7 @@ router.post("/topics", async (req: Request, res: Response) => {
     );
     const newTopicId = result.insertId;
 
+    /* 메모리 문제로 인해, 이 기능은 관리자가 로컬에서 직접 스크립트를 실행하는 것으로 대체합니다.
     if (!newTopicId) {
       throw new Error("Failed to create new topic, no insertId returned.");
     }
@@ -343,10 +344,11 @@ router.post("/topics", async (req: Request, res: Response) => {
     pythonProcess.stderr.on("data", (data) => {
       console.error(`[article_collector.py stderr]: ${data.toString().trim()}`);
     });
+    */
 
     res
       .status(201)
-      .json({ message: `Topic ${newTopicId} has been created and published. Article collection started.` });
+      .json({ message: `Topic ${newTopicId} has been created and published.`, topicId: newTopicId });
   } catch (error) {
     console.error("Error creating new topic:", error);
     res.status(500).json({ message: "Server error", detail: (error as Error).message });
@@ -741,6 +743,7 @@ router.post("/topics/:topicId/recollect", async (req: Request, res: Response) =>
       await pool.query("UPDATE tn_topic SET collection_status = 'pending', updated_at = NOW() WHERE id = ?", [topicId]);
     }
 
+    /* 메모리 문제로 인해, 이 기능은 관리자가 로컬에서 직접 스크립트를 실행하는 것으로 대체합니다.
     const pythonScriptPath = path.join(__dirname, "../../../news-data/article_collector.py");
     const command = `python3 "${pythonScriptPath}" ${topicId}`;
 
@@ -752,6 +755,7 @@ router.post("/topics/:topicId/recollect", async (req: Request, res: Response) =>
       console.log(`Recollect stdout: ${stdout}`);
       console.error(`Recollect stderr: ${stderr}`);
     });
+    */
 
     res.json({ message: `Recollection started for topic ${topicId}.`, searchKeywords: normalizedKeywords });
   } catch (error) {
