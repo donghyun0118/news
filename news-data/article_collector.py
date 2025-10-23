@@ -150,9 +150,11 @@ def now_kst_naive() -> datetime:
     return datetime.now(KST).replace(tzinfo=None)
 
 def normalize_datetime_to_utc(dt: datetime) -> datetime:
-    """시간대 정보가 없는 datetime은 KST로 간주하고, 모든 datetime을 UTC로 변환합니다."""
-    if dt.tzinfo is None:
+    """시간대 정보가 없는(naive) datetime은 KST로 간주하고, 모든 datetime을 UTC로 변환합니다."""
+    if dt.tzinfo is None or dt.tzinfo.utcoffset(dt) is None:
+        # 시간대 정보가 없으면 KST로 설정
         dt = dt.replace(tzinfo=KST)
+    # UTC로 변환
     return dt.astimezone(timezone.utc)
 
 def scrape_hankyoreh_publication_time(url: str) -> Optional[datetime]:
