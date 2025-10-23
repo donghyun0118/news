@@ -17,7 +17,8 @@ import type { Article, Topic } from "../../types";
 
 const timeAgo = (dateString?: string): string => {
   if (!dateString) return "";
-  const source = new Date(dateString);
+  // DB에서 온 시간이 UTC임을 명시하기 위해 'Z'를 추가하여 Date 객체 생성
+  const source = new Date(dateString.includes('Z') ? dateString : dateString + 'Z');
   if (Number.isNaN(source.getTime())) return "";
 
   const diffSeconds = Math.floor((Date.now() - source.getTime()) / 1000);

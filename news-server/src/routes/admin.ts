@@ -55,8 +55,8 @@ router.get("/health", (req: Request, res: Response) => {
  *         description: 문의 목록
  */
 router.get("/inquiries", async (req: Request, res: Response) => {
-  const limit = parseInt(req.query.limit as string || '25', 10);
-  const offset = parseInt(req.query.offset as string || '0', 10);
+  const limit = parseInt((req.query.limit as string) || "25", 10);
+  const offset = parseInt((req.query.offset as string) || "0", 10);
 
   try {
     const [rows] = await pool.query(
@@ -127,16 +127,12 @@ router.get("/inquiries/:inquiryId", async (req: Request, res: Response) => {
     }
 
     // 2. 답변 내용 조회
-    const [replyRows]: any = await pool.query(
-      "SELECT * FROM tn_inquiry_reply WHERE inquiry_id = ?",
-      [inquiryId]
-    );
+    const [replyRows]: any = await pool.query("SELECT * FROM tn_inquiry_reply WHERE inquiry_id = ?", [inquiryId]);
 
     res.json({
       inquiry: inquiryRows[0],
       reply: replyRows.length > 0 ? replyRows[0] : null,
     });
-
   } catch (error) {
     console.error(`Error fetching inquiry details for ID ${inquiryId}:`, error);
     res.status(500).json({ message: "Server error" });
@@ -191,26 +187,25 @@ router.post("/inquiries/:inquiryId/reply", async (req: AuthenticatedRequest, res
     await connection.beginTransaction();
 
     // 이미 답변이 있는지 확인
-    const [existingReplies]: any = await connection.query(
-      "SELECT id FROM tn_inquiry_reply WHERE inquiry_id = ?",
-      [inquiryId]
-    );
+    const [existingReplies]: any = await connection.query("SELECT id FROM tn_inquiry_reply WHERE inquiry_id = ?", [
+      inquiryId,
+    ]);
     if (existingReplies.length > 0) {
       await connection.rollback();
       return res.status(409).json({ message: "이미 답변이 등록된 문의입니다." });
     }
 
     // 1. 답변 저장
-    await connection.query(
-      "INSERT INTO tn_inquiry_reply (inquiry_id, admin_id, content) VALUES (?, ?, ?)",
-      [inquiryId, adminId, content]
-    );
+    await connection.query("INSERT INTO tn_inquiry_reply (inquiry_id, admin_id, content) VALUES (?, ?, ?)", [
+      inquiryId,
+      adminId,
+      content,
+    ]);
 
     // 2. 원본 문의 상태 변경
-    const [updateResult]: any = await connection.query(
-      "UPDATE tn_inquiry SET status = 'REPLIED' WHERE id = ?",
-      [inquiryId]
-    );
+    const [updateResult]: any = await connection.query("UPDATE tn_inquiry SET status = 'REPLIED' WHERE id = ?", [
+      inquiryId,
+    ]);
 
     if (updateResult.affectedRows === 0) {
       throw new Error("Failed to update inquiry status. Inquiry may not exist.");
@@ -218,7 +213,6 @@ router.post("/inquiries/:inquiryId/reply", async (req: AuthenticatedRequest, res
 
     await connection.commit();
     res.status(201).json({ message: "답변이 성공적으로 등록되었습니다." });
-
   } catch (error) {
     await connection.rollback();
     console.error(`Error replying to inquiry ${inquiryId}:`, error);
@@ -350,10 +344,9 @@ router.patch("/topics/:topicId/publish", async (req: Request, res: Response) => 
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: "Topic not found or already handled." });
     }
-    
+
     // 기사 수집 스크립트 자동 실행 로직은 제거됨. 관리자가 로컬에서 수동 실행.
     res.json({ message: `Topic ${topicId} has been published. Please collect articles manually.` });
-
   } catch (error) {
     console.error("Error publishing topic:", error);
     res.status(500).json({ message: "Server error", detail: (error as Error).message });
@@ -466,16 +459,15 @@ router.post("/topics", async (req: Request, res: Response) => {
     );
     const newTopicId = result.insertId;
 
-    /* 메모리 문제로 인해, 이 기능은 관리자가 로컬에서 직접 스크립트를 실행하는 것으로 대체합니다.
     if (!newTopicId) {
       throw new Error("Failed to create new topic, no insertId returned.");
     }
 
     const pythonScriptPath = path.join(__dirname, "../../../news-data/article_collector.py");
-    const command = `python3`;
+    const command = `C:\\Users\\RST\\anaconda3\\envs\\diffnews\\python.exe`;
     const args = ["-u", pythonScriptPath, newTopicId.toString()];
 
-    console.log(`Executing: ${command} ${args.join(' ')}`);
+    console.log(`Executing: ${command} ${args.join(" ")}`);
     const pythonProcess = spawn(command, args);
 
     pythonProcess.stdout.on("data", (data) => {
@@ -484,11 +476,8 @@ router.post("/topics", async (req: Request, res: Response) => {
     pythonProcess.stderr.on("data", (data) => {
       console.error(`[article_collector.py stderr]: ${data.toString().trim()}`);
     });
-    */
 
-    res
-      .status(201)
-      .json({ message: `Topic ${newTopicId} has been created and published.`, topicId: newTopicId });
+    res.status(201).json({ message: `Topic ${newTopicId} has been created and published`, topicId: newTopicId });
   } catch (error) {
     console.error("Error creating new topic:", error);
     res.status(500).json({ message: "Server error", detail: (error as Error).message });
@@ -883,19 +872,19 @@ router.post("/topics/:topicId/recollect", async (req: Request, res: Response) =>
       await pool.query("UPDATE tn_topic SET collection_status = 'pending', updated_at = NOW() WHERE id = ?", [topicId]);
     }
 
-    /* 메모리 문제로 인해, 이 기능은 관리자가 로컬에서 직접 스크립트를 실행하는 것으로 대체합니다.
     const pythonScriptPath = path.join(__dirname, "../../../news-data/article_collector.py");
-    const command = `python3 "${pythonScriptPath}" ${topicId}`;
+    const command = `C:\\Users\\RST\\anaconda3\\envs\\diffnews\\python.exe`;
+    const args = ["-u", pythonScriptPath, topicId];
 
-    exec(command, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Error executing article_collector.py for recollect: ${error}`);
-        return;
-      }
-      console.log(`Recollect stdout: ${stdout}`);
-      console.error(`Recollect stderr: ${stderr}`);
+    console.log(`Executing: ${command} ${args.join(' ')}`);
+    const pythonProcess = spawn(command, args);
+
+    pythonProcess.stdout.on("data", (data) => {
+      console.log(`[recollect stdout]: ${data.toString().trim()}`);
     });
-    */
+    pythonProcess.stderr.on("data", (data) => {
+      console.error(`[recollect stderr]: ${data.toString().trim()}`);
+    });
 
     res.json({ message: `Recollection started for topic ${topicId}.`, searchKeywords: normalizedKeywords });
   } catch (error) {

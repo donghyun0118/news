@@ -7,6 +7,8 @@ interface AuthenticatedSocket extends Socket {
   user?: jwt.JwtPayload & { 
     userId: number;
     name: string;
+    nickname: string;
+    profile_image_url: string;
   };
 }
 
@@ -55,9 +57,14 @@ const initializeSocket = (io: Server) => {
       }
 
       // 1. 다른 사용자에게 메시지 실시간 전송
+      // 임시 ID와 현재 시각을 포함하여 즉각적인 UI 반응성을 지원
       socket.to(data.room).emit("receive_message", {
-        message: data.message,
-        author: user.name, // 토큰에서 가져온 사용자 이름
+        id: Date.now(), // 임시 클라이언트 식별용 ID
+        content: data.message,
+        created_at: new Date().toISOString(),
+        user_id: user.userId,
+        nickname: user.nickname,
+        profile_image_url: user.profile_image_url,
       });
 
       // 2. 받은 메시지를 DB에 저장

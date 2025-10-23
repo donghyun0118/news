@@ -612,7 +612,7 @@ def collect_for_topic(cnx, topic: Dict, deadline_ts: float):
     # Pull recent articles
     articles = pull_feeds()
     # Filter by time window first
-    since = now_kst_naive() - timedelta(hours=TIME_WINDOW_HOURS)
+    since = datetime.now(timezone.utc) - timedelta(hours=TIME_WINDOW_HOURS)
     articles = [a for a in articles if not a.published_at or a.published_at >= since]
 
     if not articles:
