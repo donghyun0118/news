@@ -45,7 +45,7 @@ router.get("/me", authenticateUser, async (req: AuthenticatedRequest, res: Respo
   const userId = req.user?.userId;
   try {
     const [users]: any = await pool.query(
-      "SELECT email, name, nickname, phone, profile_image_url FROM tn_user WHERE id = ? AND status = 'ACTIVE'",
+      "SELECT email, name, nickname, phone, profile_image_url, introduction FROM tn_user WHERE id = ? AND status = 'ACTIVE'",
       [userId]
     );
     if (users.length === 0) {
@@ -78,25 +78,25 @@ router.get("/me", authenticateUser, async (req: AuthenticatedRequest, res: Respo
  *               nickname:
  *                 type: string
  *                 description: "새로운 닉네임"
- *               phone:
- *                 type: string
- *                 description: "새로운 휴대폰 번호"
  *               profile_image_url:
  *                 type: string
  *                 description: "새로운 프로필 이미지 URL"
+ *               introduction:
+ *                 type: string
+ *                 description: "새로운 자기소개 (최대 255자)"
  *     responses:
  *       200:
  *         description: "정보 수정 성공"
  *       400:
  *         description: "유효성 검사 실패"
  *       409:
- *         description: "닉네임 또는 휴대폰 번호 중복"
+ *         description: "닉네임 중복"
  */
 router.put("/me", authenticateUser, validateUpdateUser, async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user?.userId;
-  const { nickname, phone, profile_image_url } = req.body;
+  const { nickname, profile_image_url, introduction } = req.body;
 
-  if (!nickname && !phone && !profile_image_url) {
+  if (!nickname && !profile_image_url && introduction === undefined) {
     return res.status(400).json({ message: "수정할 정보를 입력해주세요." });
   }
 
@@ -111,7 +111,7 @@ router.put("/me", authenticateUser, validateUpdateUser, async (req: Authenticate
       }
     }
 
-    // 중복 확인
+    // 닉네임 중복 확인
     if (nickname) {
       const [existingUsers]: any = await pool.query(
         "SELECT id FROM tn_user WHERE nickname = ? AND id != ?",
@@ -119,15 +119,6 @@ router.put("/me", authenticateUser, validateUpdateUser, async (req: Authenticate
       );
       if (existingUsers.length > 0) {
         return res.status(409).json({ field: 'nickname', message: "이미 사용 중인 닉네임입니다." });
-      }
-    }
-    if (phone) {
-      const [existingUsers]: any = await pool.query(
-        "SELECT id FROM tn_user WHERE phone = ? AND id != ?",
-        [phone, userId]
-      );
-      if (existingUsers.length > 0) {
-        return res.status(409).json({ field: 'phone', message: "이미 등록된 휴대폰 번호입니다." });
       }
     }
 
@@ -138,13 +129,13 @@ router.put("/me", authenticateUser, validateUpdateUser, async (req: Authenticate
       fieldsToUpdate.push("nickname = ?");
       params.push(nickname);
     }
-    if (phone) {
-      fieldsToUpdate.push("phone = ?");
-      params.push(phone);
-    }
     if (profile_image_url) {
       fieldsToUpdate.push("profile_image_url = ?");
       params.push(profile_image_url);
+    }
+    if (introduction !== undefined) {
+      fieldsToUpdate.push("introduction = ?");
+      params.push(introduction);
     }
     params.push(userId);
 

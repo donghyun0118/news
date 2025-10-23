@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 import concurrent.futures
 from dateutil.parser import parse as dt_parse
 import threading
+import calendar
 
 # requests.Session의 고급 설정을 위한 import
 from requests.adapters import HTTPAdapter
@@ -171,34 +172,35 @@ def fetch_and_parse_feed(feed_info):
             description_html = item.get('description', item.get('summary', ''))
             description_text = re.sub('<[^<]+?>', '', description_html).strip()
 
-            # --- 날짜 처리 시작 ---
+            # --- 날짜 처리 시작 (UTC 기준으로 통일) ---
             published_time_utc = None
-            parsed_time = None
             source_name = feed_info['source']
 
-            # 1. 한겨레는 직접 스크래핑
+            # 1. 한겨레는 직접 스크래핑 (가장 우선순위 높음)
             if source_name == '한겨레':
-                parsed_time = scrape_hankyoreh_publication_time(final_url)
+                scraped_time = scrape_hankyoreh_publication_time(final_url)
+                if scraped_time:
+                    published_time_utc = normalize_datetime_to_utc(scraped_time)
 
-            # 2. 파싱된 시간 정보 확인 (표준)
-            if not parsed_time:
+            # 2. feedparser가 분석한 표준 시간 구조체(UTC)를 사용
+            if not published_time_utc:
                 time_struct = item.get('published_parsed') or item.get('updated_parsed')
                 if time_struct:
-                    parsed_time = datetime.fromtimestamp(time.mktime(time_struct))
+                    utc_timestamp = calendar.timegm(time_struct)
+                    published_time_utc = datetime.fromtimestamp(utc_timestamp, tz=timezone.utc)
 
-            # 3. 원본 문자열에서 직접 파싱 시도
-            if not parsed_time:
+            # 3. 위의 방법들이 실패하면, 원본 날짜 문자열을 직접 분석
+            if not published_time_utc:
                 date_string = item.get('published') or item.get('updated') or item.get('dc_date')
                 if date_string:
                     try:
                         parsed_time = dt_parse(date_string)
+                        published_time_utc = normalize_datetime_to_utc(parsed_time)
                     except (ValueError, TypeError):
                         pass # 실패 시 None 유지
             
-            # 4. 파싱된 시간이 있다면 UTC로 변환, 없으면 현재 시간(UTC)으로 대체
-            if parsed_time:
-                published_time_utc = normalize_datetime_to_utc(parsed_time)
-            else:
+            # 4. 모든 시도가 실패하면 현재 시간(UTC)으로 대체
+            if not published_time_utc:
                 published_time_utc = datetime.now(timezone.utc)
             # --- 날짜 처리 끝 ---
 

@@ -41,6 +41,7 @@ import requests
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
+import calendar
 
 # ---------------- Config ----------------
 MODEL_NAME = os.getenv("EMBED_MODEL", "intfloat/multilingual-e5-base")
@@ -508,29 +509,31 @@ def pull_feeds() -> List[Article]:
             published_dt: Optional[datetime] = None
             source_name = f.source
 
-            # 1. 한겨레는 직접 스크래핑
+            # 1. 한겨레는 직접 스크래핑 (가장 우선순위 높음)
             if source_name == '한겨레':
-                published_dt = scrape_hankyoreh_publication_time(link)
+                scraped_time = scrape_hankyoreh_publication_time(link)
+                if scraped_time:
+                    published_dt = normalize_datetime_to_utc(scraped_time)
 
-            # 2. 파싱된 시간 정보 확인 (표준)
+            # 2. feedparser가 분석한 표준 시간 구조체(UTC)를 사용
             if not published_dt:
                 time_struct = entry.get('published_parsed') or entry.get('updated_parsed')
                 if time_struct:
-                    published_dt = datetime.fromtimestamp(time.mktime(time_struct))
+                    utc_timestamp = calendar.timegm(time_struct)
+                    published_dt = datetime.fromtimestamp(utc_timestamp, tz=timezone.utc)
 
-            # 3. 원본 문자열에서 직접 파싱 시도
+            # 3. 위의 방법들이 실패하면, 원본 날짜 문자열을 직접 분석
             if not published_dt:
                 date_string = entry.get('published') or entry.get('updated') or entry.get('dc_date')
                 if date_string:
                     try:
-                        published_dt = dt_parse(date_string)
+                        parsed_dt = dt_parse(date_string)
+                        published_dt = normalize_datetime_to_utc(parsed_dt)
                     except (ValueError, TypeError):
                         pass # 실패 시 None 유지
             
-            # 4. 파싱된 시간이 있다면 UTC로 변환, 없으면 현재 시간(UTC)으로 대체
-            if published_dt:
-                published_dt = normalize_datetime_to_utc(published_dt)
-            else:
+            # 4. 모든 시도가 실패하면 현재 시간(UTC)으로 대체
+            if not published_dt:
                 published_dt = datetime.now(timezone.utc)
 
             desc = re.sub(r"<[^>]+>", " ", getattr(entry, "summary", "") or "")
