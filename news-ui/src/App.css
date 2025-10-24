@@ -1413,3 +1413,162 @@ a.topic-card-link {
     padding: 20px 18px 32px;
   }
 }
+
+.link-button {
+  background: none;
+  border: none;
+  color: var(--primary-blue);
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  font-size: inherit;
+  font-family: inherit;
+}
+
+.link-button:hover {
+  color: #1d4ed8;
+}
+
+/* =========================================
+   10. 마이페이지 (MyPage)
+   ========================================= */
+
+.mypage-container {
+  max-width: 900px;
+  margin: 40px auto;
+  padding: 0 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+.mypage-header h1 {
+  font-size: 2.2rem;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.profile-section, .inquiries-section {
+  background-color: var(--bg-card);
+  border-radius: var(--border-radius);
+  padding: 24px;
+  box-shadow: var(--shadow-md);
+}
+
+.profile-section h2, .inquiries-section h2 {
+  margin: 0 0 16px 0;
+  font-size: 1.4rem;
+}
+
+.profile-info p {
+  margin: 8px 0;
+  font-size: 1rem;
+  color: var(--text-secondary);
+}
+
+.profile-info strong {
+  color: var(--text-primary);
+}
+
+.inquiry-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.inquiry-item {
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  overflow: hidden; /* 자식 요소의 radius 적용을 위해 */
+}
+
+.inquiry-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  cursor: pointer;
+  background-color: #fff;
+  transition: background-color var(--transition-speed) ease;
+}
+
+.inquiry-header:hover {
+  background-color: #f9fafb;
+}
+
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.status-submitted, .status-in_progress {
+  background-color: #e5e7eb; /* Gray */
+  color: #4b5563;
+}
+
+.status-resolved {
+  background-color: #d1fae5; /* Green */
+  color: #065f46;
+}
+
+.inquiry-subject {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.inquiry-date {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.accordion-icon {
+  transition: transform var(--transition-speed) ease;
+}
+
+.accordion-icon.open {
+  transform: rotate(180deg);
+}
+
+.inquiry-body {
+  padding: 24px;
+  background-color: #f9fafb;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.inquiry-content-box {
+  padding: 16px;
+  background-color: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+}
+
+.inquiry-content-box h4 {
+  margin: 0 0 8px 0;
+  font-size: 1rem;
+}
+
+.inquiry-content-box p {
+  margin: 0;
+  line-height: 1.6;
+  white-space: pre-wrap; /* 줄바꿈 유지 */
+}
+
+.reply-box {
+  border-left: 4px solid var(--primary-green);
+}
+
+.no-reply {
+  color: var(--text-secondary);
+  font-style: italic;
+}

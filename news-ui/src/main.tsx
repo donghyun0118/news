@@ -17,6 +17,7 @@ import TopicDetailPage from "./pages/Public/TopicDetailPage";
 import SignupPage from "./pages/Public/SignupPage";
 import LoginPage from "./pages/Public/LoginPage";
 import MyPage from "./pages/Public/MyPage";
+import AdminInquiryDetailPage from "./pages/Admin/AdminInquiryDetailPage";
 
 const router = createBrowserRouter([
   { path: "/", element: <HomePage /> },
@@ -25,6 +26,14 @@ const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
   { path: "/mypage", element: <MyPage /> },
   { path: "/admin/login", element: <AdminLoginPage /> },
+  {
+    path: "/admin/inquiries/:inquiryId",
+    element: (
+      <RequireAdminAuth>
+        <AdminInquiryDetailPage />
+      </RequireAdminAuth>
+    ),
+  },
   {
     path: "/admin",
     element: (

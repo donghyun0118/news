@@ -222,6 +222,14 @@ router.post("/login", validateLogin, async (req: Request, res: Response) => {
       return res.status(401).json({ message: "이메일 또는 비밀번호가 올바르지 않습니다." });
     }
 
+    // 사용자 계정 상태 확인
+    if (user.status === 'DELETED') {
+      return res.status(401).json({ message: "탈퇴한 계정입니다." });
+    }
+    if (user.status === 'SUSPENDED') {
+      return res.status(401).json({ message: "이용이 정지된 계정입니다." });
+    }
+
     const jwtSecret = process.env.USER_JWT_SECRET || "default_fallback_secret";
     if (jwtSecret === 'default_fallback_secret') {
         console.warn('Warning: USER_JWT_SECRET environment variable is not set. Using a default secret key for development.');

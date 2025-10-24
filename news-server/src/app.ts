@@ -36,7 +36,12 @@ app.use("/public", express.static("public"));
 app.use(express.urlencoded({ extended: true }));
 
 // Swagger UI
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs));
+const swaggerOptions = {
+  swaggerOptions: {
+    persistAuthorization: true,
+  },
+};
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs, swaggerOptions));
 
 // API 라우터
 app.use("/api/admin", adminRouter);

@@ -4,6 +4,15 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAdminAuth } from "../../context/AdminAuthContext";
 import type { Topic } from "../../types";
 
+// 문의 타입 정의
+interface Inquiry {
+  id: number;
+  subject: string;
+  status: "PENDING" | "REPLIED";
+  created_at: string;
+  user_nickname: string;
+}
+
 const formatPublishedAt = (value?: string | null) => {
   if (!value) {
     return "";
@@ -25,6 +34,7 @@ const TOPIC_PROMPT =
 
 export default function AdminPage() {
   const [publishedTopics, setPublishedTopics] = useState<Topic[]>([]);
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]); // 문의 목록 상태 추가
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAdminAuth();
@@ -58,10 +68,15 @@ export default function AdminPage() {
 
   const fetchData = async () => {
     try {
+      // 기존 토픽 데이터 로드
       const publishedRes = await axios.get("/api/admin/topics/published");
       setPublishedTopics(publishedRes.data);
+
+      // 문의 내역 데이터 로드
+      const inquiriesRes = await axios.get("/api/admin/inquiries");
+      setInquiries(inquiriesRes.data);
     } catch (error) {
-      console.error("토픽 데이터를 불러오는 중 오류가 발생했습니다.", error);
+      console.error("데이터를 불러오는 중 오류가 발생했습니다.", error);
     }
   };
 
@@ -70,6 +85,7 @@ export default function AdminPage() {
   }, [location.pathname]);
 
   const publishedCount = publishedTopics.length;
+  const inquiryCount = inquiries.length; // 문의 수
 
   return (
     <div className="admin-container admin-page">
@@ -93,7 +109,44 @@ export default function AdminPage() {
             <span className="metric-label">발행 토픽</span>
             <span className="metric-value">{publishedCount}</span>
           </div>
+          <div className="admin-metric-card">
+            <span className="metric-label">받은 문의</span>
+            <span className="metric-value">{inquiryCount}</span>
+          </div>
         </div>
+      </section>
+
+      {/* 문의 관리 섹션 */}
+      <section className="admin-section">
+        <div className="admin-section-header">
+          <div>
+            <h2>문의 관리</h2>
+            <p className="admin-section-subtitle">사용자가 제출한 문의 내역입니다.</p>
+          </div>
+        </div>
+        {inquiryCount > 0 ? (
+          <div className="admin-section-body">
+            {inquiries.map((inquiry) => (
+              <article key={inquiry.id} className="topic-approval-item admin-topic-card">
+                <div className="topic-info">
+                  <h3>{inquiry.subject}</h3>
+                  <p className="topic-meta">
+                    작성자: {inquiry.user_nickname} | {formatPublishedAt(inquiry.created_at)}
+                  </p>
+                </div>
+                <div className="topic-actions">
+                  <Link to={`/admin/inquiries/${inquiry.id}`} className="edit-btn-link curation-btn">
+                    내용 보기
+                  </Link>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="admin-empty-state">
+            <h3>받은 문의가 없습니다</h3>
+          </div>
+        )}
       </section>
 
       <section className="admin-section">

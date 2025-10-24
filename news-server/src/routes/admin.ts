@@ -1,5 +1,6 @@
-import { exec, spawn } from "child_process";
+import { spawn } from "child_process";
 import express, { Request, Response } from "express";
+import fs from "fs";
 import path from "path";
 import pool from "../config/db";
 import { authenticateAdmin, handleAdminLogin } from "../middleware/auth";
@@ -27,6 +28,11 @@ const router = express.Router();
 router.get("/health", (req: Request, res: Response) => {
   res.json({ status: "ok" });
 });
+
+router.post("/login", handleAdminLogin);
+
+// --- 이하 모든 API는 인증이 필요합니다 ---
+router.use(authenticateAdmin);
 
 /**
  * @swagger
@@ -173,10 +179,14 @@ router.get("/inquiries/:inquiryId", async (req: Request, res: Response) => {
  *       409:
  *         description: "이미 답변이 등록된 문의입니다."
  */
-router.post("/inquiries/:inquiryId/reply", async (req: AuthenticatedRequest, res: Response) => {
+router.post("/inquiries/:inquiryId/reply", async (req: Request, res: Response) => {
   const { inquiryId } = req.params;
   const { content } = req.body;
-  const adminId = req.user?.userId; // 타입이 지정되었으므로 안전하게 접근
+  const adminUsername = (req as any).admin?.username;
+
+  if (!adminUsername) {
+    return res.status(401).json({ message: "Admin user not found in token." });
+  }
 
   if (!content) {
     return res.status(400).json({ message: "답변 내용을 입력해주세요." });
@@ -186,24 +196,15 @@ router.post("/inquiries/:inquiryId/reply", async (req: AuthenticatedRequest, res
   try {
     await connection.beginTransaction();
 
-    // 이미 답변이 있는지 확인
-    const [existingReplies]: any = await connection.query("SELECT id FROM tn_inquiry_reply WHERE inquiry_id = ?", [
-      inquiryId,
-    ]);
-    if (existingReplies.length > 0) {
-      await connection.rollback();
-      return res.status(409).json({ message: "이미 답변이 등록된 문의입니다." });
-    }
-
     // 1. 답변 저장
-    await connection.query("INSERT INTO tn_inquiry_reply (inquiry_id, admin_id, content) VALUES (?, ?, ?)", [
+    await connection.query("INSERT INTO tn_inquiry_reply (inquiry_id, admin_username, content) VALUES (?, ?, ?)", [
       inquiryId,
-      adminId,
+      adminUsername,
       content,
     ]);
 
     // 2. 원본 문의 상태 변경
-    const [updateResult]: any = await connection.query("UPDATE tn_inquiry SET status = 'REPLIED' WHERE id = ?", [
+    const [updateResult]: any = await connection.query("UPDATE tn_inquiry SET status = 'RESOLVED' WHERE id = ?", [
       inquiryId,
     ]);
 
@@ -876,7 +877,7 @@ router.post("/topics/:topicId/recollect", async (req: Request, res: Response) =>
     const command = `C:\\Users\\RST\\anaconda3\\envs\\diffnews\\python.exe`;
     const args = ["-u", pythonScriptPath, topicId];
 
-    console.log(`Executing: ${command} ${args.join(' ')}`);
+    console.log(`Executing: ${command} ${args.join(" ")}`);
     const pythonProcess = spawn(command, args);
 
     pythonProcess.stdout.on("data", (data) => {
@@ -890,6 +891,79 @@ router.post("/topics/:topicId/recollect", async (req: Request, res: Response) =>
   } catch (error) {
     console.error("Error starting recollection:", error);
     res.status(500).json({ message: "Server error", detail: (error as Error).message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/download:
+ *   get:
+ *     tags: [Admin]
+ *     summary: 첨부파일 다운로드 (관리자용)
+ *     description: "관리자가 문의 내역의 첨부파일을 안전하게 다운로드합니다."
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: "다운로드할 파일의 경로"
+ *     responses:
+ *       200:
+ *         description: "파일 다운로드 성공"
+ *       403:
+ *         description: "접근 금지"
+ *       404:
+ *         description: "파일을 찾을 수 없음"
+ */
+router.get("/download", (req: Request, res: Response) => {
+  const filePath_raw = req.query.path as string;
+
+  if (!filePath_raw) {
+    return res.status(400).json({ message: "파일 경로가 필요합니다." });
+  }
+
+  // 경로 정규화 및 공백 제거
+  const filePath = path.normalize(filePath_raw.trim());
+
+  console.log(`[Download API] Cleaned request for file path: ${filePath}`);
+
+  const rootDir = path.resolve(__dirname, "..", "..");
+  const uploadDir = path.resolve(rootDir, "uploads");
+  const absolutePath = rootDir + path.sep + filePath;
+
+
+
+  console.log(`[Download API] Calculated absolute path: ${absolutePath}`);
+
+  const fileExists = fs.existsSync(absolutePath);
+  console.log(`[Download API] File exists check: ${fileExists}`);
+
+  // 더 강력한 보안 검사: 요청된 경로가 uploads 디렉토리 내에 있는지 확인
+  const relativePath = path.relative(uploadDir, absolutePath);
+  if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+    console.error("Forbidden file access attempt (Relative Path Check Fail):", {
+      uploadDir,
+      absolutePath,
+      relativePath,
+    });
+    return res.status(403).json({ message: "허용되지 않은 파일에 대한 접근입니다." });
+  }
+
+  if (fileExists) {
+    res.download(absolutePath, (err) => {
+      if (err) {
+        console.error("File download error:", err);
+        if (!res.headersSent) {
+          res.status(500).json({ message: "파일을 다운로드하는 중 오류가 발생했습니다." });
+        }
+      }
+    });
+  } else {
+    console.error(`[Download API] File not found at path: ${absolutePath}`);
+    res.status(404).json({ message: "파일을 찾을 수 없습니다." });
   }
 });
 
