@@ -219,7 +219,8 @@ router.get("/popular", async (req: Request, res: Response) => {
  *   post:
  *     tags:
  *       - Articles
- *     summary: "기사 추천 또는 추천 취소 (토글)"
+ *     summary: "기사 추천"
+ *     description: "특정 기사에 대한 사용자의 '좋아요'를 추가합니다. 이미 '좋아요'를 누른 경우에도 성공으로 처리됩니다."
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -230,36 +231,130 @@ router.get("/popular", async (req: Request, res: Response) => {
  *           type: integer
  *     responses:
  *       200:
- *         description: "추천 취소 성공"
- *       201:
- *         description: "추천 성공"
+ *         description: "추천 성공. 최신 '좋아요' 상태를 반환합니다."
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     articleId:
+ *                       type: integer
+ *                     likes:
+ *                       type: integer
+ *                     isLiked:
+ *                       type: boolean
+ *                       example: true
+ *       404:
+ *         description: "기사를 찾을 수 없음"
  */
 router.post("/:articleId/like", authenticateUser, async (req: AuthenticatedRequest, res: Response) => {
   const articleId = req.params.articleId;
   const userId = req.user?.userId;
-  if (!userId) return res.status(401).json({ message: "Authentication required." });
 
   const connection = await pool.getConnection();
   try {
-    await connection.beginTransaction();
-    const [deleteResult]: any = await connection.query(
+    // 1. 기사 존재 여부 확인
+    const [articleRows]: any = await connection.query("SELECT id FROM tn_article WHERE id = ?", [articleId]);
+    if (articleRows.length === 0) {
+      return res.status(404).json({ message: "Article not found." });
+    }
+
+    // 2. 좋아요 추가 (INSERT IGNORE로 중복 방지)
+    await connection.query(
+      "INSERT IGNORE INTO tn_article_like (user_id, article_id) VALUES (?, ?)",
+      [userId, articleId]
+    );
+
+    // 3. 최신 좋아요 수 조회
+    const [likeCountRows]: any = await connection.query(
+      "SELECT COUNT(*) as likeCount FROM tn_article_like WHERE article_id = ?",
+      [articleId]
+    );
+    const likeCount = likeCountRows[0].likeCount;
+
+    // 4. 최종 상태 반환
+    res.status(200).json({
+      data: {
+        articleId: parseInt(articleId, 10),
+        likes: likeCount,
+        isLiked: true,
+      },
+    });
+  } catch (error) {
+    console.error("Error adding article like:", error);
+    res.status(500).json({ message: "Server error" });
+  } finally {
+    connection.release();
+  }
+});
+
+/**
+ * @swagger
+ * /api/articles/{articleId}/like:
+ *   delete:
+ *     tags:
+ *       - Articles
+ *     summary: "기사 추천 취소"
+ *     description: "특정 기사에 대한 사용자의 '좋아요'를 취소합니다. '좋아요'를 누르지 않은 상태에서 요청해도 성공으로 처리됩니다."
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: articleId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: "추천 취소 성공. 최신 '좋아요' 상태를 반환합니다."
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     articleId:
+ *                       type: integer
+ *                     likes:
+ *                       type: integer
+ *                     isLiked:
+ *                       type: boolean
+ *                       example: false
+ */
+router.delete("/:articleId/like", authenticateUser, async (req: AuthenticatedRequest, res: Response) => {
+  const articleId = req.params.articleId;
+  const userId = req.user?.userId;
+
+  const connection = await pool.getConnection();
+  try {
+    // 1. 좋아요 삭제
+    await connection.query(
       "DELETE FROM tn_article_like WHERE user_id = ? AND article_id = ?",
       [userId, articleId]
     );
-    if (deleteResult.affectedRows > 0) {
-      await connection.commit();
-      res.status(200).json({ message: "Like removed." });
-    } else {
-      await connection.query(
-        "INSERT INTO tn_article_like (user_id, article_id) VALUES (?, ?)",
-        [userId, articleId]
-      );
-      await connection.commit();
-      res.status(201).json({ message: "Like added." });
-    }
+
+    // 2. 최신 좋아요 수 조회
+    const [likeCountRows]: any = await connection.query(
+      "SELECT COUNT(*) as likeCount FROM tn_article_like WHERE article_id = ?",
+      [articleId]
+    );
+    const likeCount = likeCountRows[0].likeCount;
+
+    // 3. 최종 상태 반환 (기사가 존재하지 않아도 멱등성을 위해 성공으로 처리)
+    res.status(200).json({
+      data: {
+        articleId: parseInt(articleId, 10),
+        likes: likeCount,
+        isLiked: false,
+      },
+    });
   } catch (error) {
-    await connection.rollback();
-    console.error("Error handling article like:", error);
+    console.error("Error removing article like:", error);
     res.status(500).json({ message: "Server error" });
   } finally {
     connection.release();
@@ -350,9 +445,26 @@ router.post("/:articleId/view", optionalAuthenticateUser, async (req: Authentica
  *           type: integer
  *     responses:
  *       201:
- *         description: "기사 저장 성공"
- *       401:
- *         description: "인증 실패"
+ *         description: "기사 저장 성공. 생성된 savedArticleId를 포함한 정보를 반환합니다."
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Article saved successfully."
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     savedArticleId:
+ *                       type: integer
+ *                     userId:
+ *                       type: integer
+ *                     articleId:
+ *                       type: integer
+ *       404:
+ *         description: "기사를 찾을 수 없음"
  *       409:
  *         description: "이미 저장된 기사"
  */
@@ -360,22 +472,38 @@ router.post("/:articleId/save", authenticateUser, async (req: AuthenticatedReque
   const articleId = req.params.articleId;
   const userId = req.user?.userId;
 
+  const connection = await pool.getConnection();
   try {
-    // INSERT IGNORE를 사용하여, 이미 저장된 경우(UNIQUE KEY 제약조건 위반) 오류를 발생시키지 않고 무시합니다.
-    const [result]: any = await pool.query(
+    // 1. 기사 존재 여부 확인
+    const [articleRows]: any = await connection.query("SELECT id FROM tn_article WHERE id = ?", [articleId]);
+    if (articleRows.length === 0) {
+      return res.status(404).json({ message: "Article not found." });
+    }
+
+    // 2. 기사 저장 (INSERT IGNORE로 중복 방지)
+    const [result]: any = await connection.query(
       "INSERT IGNORE INTO tn_user_saved_articles (user_id, article_id) VALUES (?, ?)",
       [userId, articleId]
     );
 
     if (result.affectedRows === 0) {
-      // 0 rows affected means the article was already saved.
       return res.status(409).json({ message: "Article already saved." });
     }
 
-    res.status(201).json({ message: "Article saved successfully." });
+    // 3. 생성된 데이터 정보와 함께 201 응답 반환
+    res.status(201).json({
+      message: "Article saved successfully.",
+      data: {
+        savedArticleId: result.insertId,
+        userId,
+        articleId: parseInt(articleId, 10),
+      },
+    });
   } catch (error) {
     console.error("Error saving article:", error);
     res.status(500).json({ message: "Server error" });
+  } finally {
+    connection.release();
   }
 });
 
@@ -398,18 +526,23 @@ router.post("/:articleId/save", authenticateUser, async (req: AuthenticatedReque
  *     responses:
  *       200:
  *         description: "기사 저장 취소 성공"
- *       401:
- *         description: "인증 실패"
+ *       404:
+ *         description: "저장된 기사를 찾을 수 없음"
  */
 router.delete("/:articleId/save", authenticateUser, async (req: AuthenticatedRequest, res: Response) => {
   const articleId = req.params.articleId;
   const userId = req.user?.userId;
 
   try {
-    await pool.query(
+    const [result]: any = await pool.query(
       "DELETE FROM tn_user_saved_articles WHERE user_id = ? AND article_id = ?",
       [userId, articleId]
     );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Saved article not found." });
+    }
+
     res.status(200).json({ message: "Article unsaved successfully." });
   } catch (error) {
     console.error("Error unsaving article:", error);

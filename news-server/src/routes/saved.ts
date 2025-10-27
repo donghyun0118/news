@@ -132,7 +132,7 @@ router.get("/articles", async (req: AuthenticatedRequest, res) => {
     FROM 
       tn_user_saved_articles s
     JOIN 
-      tn_home_article a ON s.article_id = a.id
+      tn_article a ON s.article_id = a.id
     WHERE 
       s.user_id = ?
   `;
