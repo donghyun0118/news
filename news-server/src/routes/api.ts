@@ -120,11 +120,19 @@ router.get("/topics/popular-ranking", async (req: Request, res: Response) => {
  *                     properties:
  *                       favicon_url:
  *                         type: string
+ *                       isLiked:
+ *                         type: boolean
+ *                         description: "현재 사용자가 이 기사를 '좋아요' 했는지 여부"
+ *                       isSaved:
+ *                         type: boolean
+ *                         description: "현재 사용자가 이 기사를 '저장' 했는지 여부"
  *       404:
  *         description: 해당 토픽을 찾을 수 없습니다.
  */
-router.get("/topics/:topicId", async (req: Request, res: Response) => {
+router.get("/topics/:topicId", optionalAuthenticateUser, async (req: AuthenticatedRequest, res: Response) => {
   const { topicId } = req.params;
+  const userId = req.user?.userId; // From optionalAuthenticateUser
+
   try {
     const [topicRows]: any = await pool.query(
       "SELECT id, display_name, summary, published_at, view_count FROM tn_topic WHERE id = ? AND status = 'published'",
@@ -138,11 +146,17 @@ router.get("/topics/:topicId", async (req: Request, res: Response) => {
       `
       SELECT 
         a.id, a.source, a.source_domain, a.side, a.title, a.url, a.published_at, a.is_featured, a.thumbnail_url, a.view_count,
-        COUNT(l.id) AS like_count
+        COUNT(l_total.id) AS like_count,
+        IF(l_user.id IS NOT NULL, TRUE, FALSE) AS isLiked,
+        IF(s_user.id IS NOT NULL, TRUE, FALSE) AS isSaved
       FROM 
         tn_article a
       LEFT JOIN 
-        tn_article_like l ON a.id = l.article_id
+        tn_article_like l_total ON a.id = l_total.article_id
+      LEFT JOIN
+        tn_article_like l_user ON a.id = l_user.article_id AND l_user.user_id = ?
+      LEFT JOIN
+        tn_user_saved_articles s_user ON a.id = s_user.article_id AND s_user.user_id = ?
       WHERE 
         a.topic_id = ? AND a.status = 'published'
       GROUP BY
@@ -150,12 +164,14 @@ router.get("/topics/:topicId", async (req: Request, res: Response) => {
       ORDER BY 
         a.display_order ASC
       `,
-      [topicId]
+      [userId, userId, topicId] // userId is used twice now
     );
 
     // Add favicon_url to each article
     const articlesWithFavicon = (articleRows as any[]).map((article) => ({
       ...article,
+      isLiked: Boolean(article.isLiked), // Convert 0/1 to false/true
+      isSaved: Boolean(article.isSaved),
       favicon_url: FAVICON_URLS[article.source_domain] || null,
     }));
 
@@ -165,6 +181,7 @@ router.get("/topics/:topicId", async (req: Request, res: Response) => {
     };
     res.json(responseData);
   } catch (error) {
+    console.error("Error fetching topic details:", error);
     res.status(500).json({ message: "Server error" });
   }
 });
