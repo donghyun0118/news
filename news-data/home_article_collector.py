@@ -185,7 +185,7 @@ def fetch_and_parse_feed(feed_info: Dict[str, Any]) -> List[Dict[str, Any]]:
 
             final_url = resolve_google_news_url(item.link)
             cleaned_title = clean_title(item.title)
-            final_title = html.unescape(cleaned_title)
+            final_title = html.unescape(html.unescape(cleaned_title))
             
             description_html = item.get('description', item.get('summary', ''))
             description_text = re.sub('<[^<]+?>', '', description_html).strip()

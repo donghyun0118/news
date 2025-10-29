@@ -271,8 +271,9 @@ router.post("/topics/:topicId/view", optionalAuthenticateUser, async (req: Authe
  *       200:
  *         description: "검색 결과 목록"
  */
-router.get("/search", async (req: Request, res: Response) => {
+router.get("/search", optionalAuthenticateUser, async (req: AuthenticatedRequest, res: Response) => {
   const query = req.query.q as string;
+  const userId = req.user?.userId;
 
   if (!query || query.trim() === "") {
     return res.status(400).json({ message: "검색어를 입력해주세요." });
@@ -282,17 +283,19 @@ router.get("/search", async (req: Request, res: Response) => {
 
   try {
     const [rows] = await pool.query(
-      `SELECT a.id, a.source, a.source_domain, a.title, a.url, a.published_at, a.thumbnail_url, a.description, COUNT(l.id) AS like_count
+      `SELECT a.*, COUNT(l.id) AS like_count, MAX(IF(l_user.id IS NOT NULL, 1, 0)) as isLiked
        FROM tn_home_article a
        LEFT JOIN tn_article_like l ON a.id = l.article_id
+       LEFT JOIN tn_article_like l_user ON a.id = l_user.article_id AND l_user.user_id = ?
        WHERE (a.title LIKE ? OR a.description LIKE ?)
        GROUP BY a.id
        ORDER BY a.published_at DESC
        LIMIT 50`,
-      [searchQuery, searchQuery]
+      [userId, searchQuery, searchQuery]
     );
     const articlesWithFavicon = (rows as any[]).map((article) => ({
       ...article,
+      isLiked: Boolean(article.isLiked),
       favicon_url: FAVICON_URLS[article.source_domain] || null,
     }));
     res.json(articlesWithFavicon);

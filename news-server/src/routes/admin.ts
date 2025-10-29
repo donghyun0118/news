@@ -999,4 +999,108 @@ router.get("/download", (req: Request, res: Response) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/admin/topics/{topicId}/unpublish-all-articles:
+ *   post:
+ *     tags: [Admin]
+ *     summary: 특정 토픽의 모든 발행된 기사를 제안됨 상태로 변경
+ *     description: "특정 토픽 ID에 속한 모든 'published' 상태의 기사들을 'suggested' 상태로 일괄 변경합니다."
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: topicId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: "성공적으로 처리되었으며, 변경된 기사의 수를 반환합니다."
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 updatedCount:
+ *                   type: integer
+ *       404:
+ *         description: "토픽을 찾을 수 없거나, 변경할 기사가 없습니다."
+ */
+router.post("/topics/:topicId/unpublish-all-articles", async (req: Request, res: Response) => {
+  const { topicId } = req.params;
+  try {
+    const [result]: any = await pool.query(
+      "UPDATE tn_article SET status = 'suggested' WHERE topic_id = ? AND status = 'published'",
+      [topicId]
+    );
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "No published articles found for this topic to unpublish." });
+    }
+
+    res.json({ 
+      message: `Successfully unpublished all articles for topic ${topicId}.`,
+      updatedCount: result.affectedRows 
+    });
+  } catch (error) {
+    console.error("Error unpublishing all articles for topic:", error);
+    res.status(500).json({ message: "Server error", detail: (error as Error).message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/topics/{topicId}/delete-all-suggested:
+ *   post:
+ *     tags: [Admin]
+ *     summary: 특정 토픽의 모든 제안된 기사를 삭제 상태로 변경
+ *     description: "특정 토픽 ID에 속한 모든 'suggested' 상태의 기사들을 'deleted' 상태로 일괄 변경합니다."
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: topicId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: "성공적으로 처리되었으며, 삭제 처리된 기사의 수를 반환합니다."
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 deletedCount:
+ *                   type: integer
+ *       404:
+ *         description: "토픽을 찾을 수 없거나, 삭제할 제안된 기사가 없습니다."
+ */
+router.post("/topics/:topicId/delete-all-suggested", async (req: Request, res: Response) => {
+  const { topicId } = req.params;
+  try {
+    const [result]: any = await pool.query(
+      "UPDATE tn_article SET status = 'deleted' WHERE topic_id = ? AND status = 'suggested'",
+      [topicId]
+    );
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "No suggested articles found for this topic to delete." });
+    }
+
+    res.json({ 
+      message: `Successfully deleted all suggested articles for topic ${topicId}.`,
+      deletedCount: result.affectedRows 
+    });
+  } catch (error) {
+    console.error("Error deleting all suggested articles for topic:", error);
+    res.status(500).json({ message: "Server error", detail: (error as Error).message });
+  }
+});
+
 export default router;

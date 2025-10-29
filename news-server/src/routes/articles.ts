@@ -5,11 +5,15 @@ import { AuthenticatedRequest, authenticateUser, optionalAuthenticateUser } from
 
 const router = express.Router();
 
-// Helper function to add favicon url to articles
-const addFaviconUrl = (article: any) => ({
-  ...article,
-  favicon_url: FAVICON_URLS[article.source_domain] || null,
-});
+// Helper function to process articles, adding favicon and normalizing like status
+const processArticles = (articles: any[]) => {
+  return articles.map((article) => ({
+    ...article,
+    favicon_url: FAVICON_URLS[article.source_domain] || null,
+    isLiked: Boolean(article.isLiked),
+    like_count: article.like_count || 0,
+  }));
+};
 
 /**
  * @swagger
@@ -74,19 +78,27 @@ const addFaviconUrl = (article: any) => ({
  *               items:
  *                 $ref: '#/components/schemas/ArticleWithFavicon'
  */
-router.get("/by-category", async (req: Request, res: Response) => {
+router.get("/by-category", optionalAuthenticateUser, async (req: AuthenticatedRequest, res: Response) => {
   const { name, limit = 30, offset = 0 } = req.query;
+  const userId = req.user?.userId;
 
   if (!name) {
     return res.status(400).json({ message: "카테고리 이름을 'name' 파라미터로 제공해야 합니다." });
   }
 
   try {
-    const query =
-      "SELECT id, source, source_domain, title, url, published_at, thumbnail_url FROM tn_home_article WHERE category = ? ORDER BY published_at DESC LIMIT ? OFFSET ?";
-    const [rows] = await pool.query(query, [name, Number(limit), Number(offset)]);
-    const articlesWithFavicon = (rows as any[]).map(addFaviconUrl);
-    res.json(articlesWithFavicon);
+    const query = `
+      SELECT a.*, COUNT(l.id) as like_count, MAX(IF(l_user.id IS NOT NULL, 1, 0)) as isLiked
+      FROM tn_home_article a
+      LEFT JOIN tn_article_like l ON a.id = l.article_id
+      LEFT JOIN tn_article_like l_user ON a.id = l_user.article_id AND l_user.user_id = ?
+      WHERE a.category = ?
+      GROUP BY a.id
+      ORDER BY a.published_at DESC
+      LIMIT ? OFFSET ?
+    `;
+    const [rows] = await pool.query(query, [userId, name, Number(limit), Number(offset)]);
+    res.json(processArticles(rows as any[]));
   } catch (error) {
     console.error("Error fetching articles by category:", error);
     res.status(500).json({ message: "Server error" });
@@ -130,19 +142,27 @@ router.get("/by-category", async (req: Request, res: Response) => {
  *               items:
  *                 $ref: '#/components/schemas/ArticleWithFavicon'
  */
-router.get("/by-source", async (req: Request, res: Response) => {
+router.get("/by-source", optionalAuthenticateUser, async (req: AuthenticatedRequest, res: Response) => {
   const { name, limit = 30, offset = 0 } = req.query;
+  const userId = req.user?.userId;
 
   if (!name) {
     return res.status(400).json({ message: "언론사 이름을 'name' 파라미터로 제공해야 합니다." });
   }
 
   try {
-    const query =
-      "SELECT id, source, source_domain, title, url, published_at, thumbnail_url FROM tn_home_article WHERE source = ? ORDER BY published_at DESC LIMIT ? OFFSET ?";
-    const [rows] = await pool.query(query, [name, Number(limit), Number(offset)]);
-    const articlesWithFavicon = (rows as any[]).map(addFaviconUrl);
-    res.json(articlesWithFavicon);
+    const query = `
+      SELECT a.*, COUNT(l.id) as like_count, MAX(IF(l_user.id IS NOT NULL, 1, 0)) as isLiked
+      FROM tn_home_article a
+      LEFT JOIN tn_article_like l ON a.id = l.article_id
+      LEFT JOIN tn_article_like l_user ON a.id = l_user.article_id AND l_user.user_id = ?
+      WHERE a.source = ?
+      GROUP BY a.id
+      ORDER BY a.published_at DESC
+      LIMIT ? OFFSET ?
+    `;
+    const [rows] = await pool.query(query, [userId, name, Number(limit), Number(offset)]);
+    res.json(processArticles(rows as any[]));
   } catch (error) {
     console.error("Error fetching articles by source:", error);
     res.status(500).json({ message: "Server error" });
@@ -178,23 +198,28 @@ router.get("/by-source", async (req: Request, res: Response) => {
  *                       popularity_score:
  *                         type: number
  */
-router.get("/popular", async (req: Request, res: Response) => {
+router.get("/popular", optionalAuthenticateUser, async (req: AuthenticatedRequest, res: Response) => {
   const { category } = req.query;
+  const userId = req.user?.userId;
 
   try {
     let query = `
       SELECT 
-        a.id, a.source, a.source_domain, a.title, a.url, a.published_at, a.thumbnail_url,
-        (a.view_count + (COUNT(l.id) * 3)) AS popularity_score
+        a.*,
+        (a.view_count + (COUNT(l.id) * 3)) AS popularity_score,
+        COUNT(l.id) as like_count,
+        MAX(IF(l_user.id IS NOT NULL, 1, 0)) as isLiked
       FROM 
         tn_home_article a
       LEFT JOIN 
         tn_article_like l ON a.id = l.article_id
+      LEFT JOIN
+        tn_article_like l_user ON a.id = l_user.article_id AND l_user.user_id = ?
       WHERE 
         a.published_at >= NOW() - INTERVAL 3 DAY
     `;
 
-    const params: string[] = [];
+    const params: (string | number | undefined)[] = [userId];
     if (category) {
       query += ` AND a.category = ?`;
       params.push(category as string);
@@ -207,8 +232,7 @@ router.get("/popular", async (req: Request, res: Response) => {
     `;
 
     const [rows] = await pool.query(query, params);
-    const articlesWithFavicon = (rows as any[]).map(addFaviconUrl);
-    res.json(articlesWithFavicon);
+    res.json(processArticles(rows as any[]));
   } catch (error) {
     console.error("Error fetching popular articles:", error);
     res.status(500).json({ message: "Server error" });
@@ -621,16 +645,24 @@ router.delete("/:articleId/save", authenticateUser, async (req: AuthenticatedReq
  *               items:
  *                 $ref: '#/components/schemas/ArticleWithFavicon'
  */
-router.get("/exclusives", async (req: Request, res: Response) => {
+router.get("/exclusives", optionalAuthenticateUser, async (req: AuthenticatedRequest, res: Response) => {
   const limit = parseInt((req.query.limit as string) || "30", 10);
   const offset = parseInt((req.query.offset as string) || "0", 10);
+  const userId = req.user?.userId;
 
   try {
-    const query =
-      "SELECT id, source, source_domain, url, published_at, title, thumbnail_url FROM tn_home_article WHERE title LIKE '%[단독]%' ORDER BY published_at DESC LIMIT ? OFFSET ?";
-    const [rows] = await pool.query(query, [limit, offset]);
-    const articlesWithFavicon = (rows as any[]).map(addFaviconUrl);
-    res.json(articlesWithFavicon);
+    const query = `
+      SELECT a.*, COUNT(l.id) as like_count, MAX(IF(l_user.id IS NOT NULL, 1, 0)) as isLiked
+      FROM tn_home_article a
+      LEFT JOIN tn_article_like l ON a.id = l.article_id
+      LEFT JOIN tn_article_like l_user ON a.id = l_user.article_id AND l_user.user_id = ?
+      WHERE a.title LIKE '%[단독]%'
+      GROUP BY a.id
+      ORDER BY a.published_at DESC
+      LIMIT ? OFFSET ?
+    `;
+    const [rows] = await pool.query(query, [userId, limit, offset]);
+    res.json(processArticles(rows as any[]));
   } catch (error) {
     console.error("Error fetching exclusive articles:", error);
     res.status(500).json({ message: "Server error" });
@@ -668,16 +700,24 @@ router.get("/exclusives", async (req: Request, res: Response) => {
  *               items:
  *                 $ref: '#/components/schemas/ArticleWithFavicon'
  */
-router.get("/breaking", async (req: Request, res: Response) => {
+router.get("/breaking", optionalAuthenticateUser, async (req: AuthenticatedRequest, res: Response) => {
   const limit = parseInt((req.query.limit as string) || "30", 10);
   const offset = parseInt((req.query.offset as string) || "0", 10);
+  const userId = req.user?.userId;
 
   try {
-    const query =
-      "SELECT id, source, source_domain, url, published_at, title, thumbnail_url FROM tn_home_article WHERE title LIKE '%[속보]%' ORDER BY published_at DESC LIMIT ? OFFSET ?";
-    const [rows] = await pool.query(query, [limit, offset]);
-    const articlesWithFavicon = (rows as any[]).map(addFaviconUrl);
-    res.json(articlesWithFavicon);
+    const query = `
+      SELECT a.*, COUNT(l.id) as like_count, MAX(IF(l_user.id IS NOT NULL, 1, 0)) as isLiked
+      FROM tn_home_article a
+      LEFT JOIN tn_article_like l ON a.id = l.article_id
+      LEFT JOIN tn_article_like l_user ON a.id = l_user.article_id AND l_user.user_id = ?
+      WHERE a.title LIKE '%[속보]%'
+      GROUP BY a.id
+      ORDER BY a.published_at DESC
+      LIMIT ? OFFSET ?
+    `;
+    const [rows] = await pool.query(query, [userId, limit, offset]);
+    res.json(processArticles(rows as any[]));
   } catch (error) {
     console.error("Error fetching breaking articles:", error);
     res.status(500).json({ message: "Server error" });

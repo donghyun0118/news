@@ -244,6 +244,32 @@ const AdminTopicDetailPage = () => {
         alert("토픽 보관 처리에 실패했습니다.");
       }
     },
+    handleUnpublishAllArticles: async () => {
+      if (!topicId) return;
+      if (!window.confirm(`이 토픽의 모든 발행된 기사를 '제안됨' 상태로 변경할까요?`)) return;
+      try {
+        const response = await axios.post(`/api/admin/topics/${topicId}/unpublish-all-articles`);
+        const count = response.data.updatedCount || 0;
+        alert(`${count}개의 기사가 '제안됨' 상태로 변경되었습니다.`);
+        fetchData(); // 데이터 새로고침
+      } catch (error) {
+        console.error("모든 기사 발행 취소 실패:", error);
+        alert("작업에 실패했습니다. 서버 로그를 확인해주세요.");
+      }
+    },
+    handleDeleteAllSuggested: async () => {
+      if (!topicId) return;
+      if (!window.confirm(`이 토픽의 모든 후보 기사(제안됨 상태)를 삭제할까요? 이 작업은 되돌릴 수 없습니다.`)) return;
+      try {
+        const response = await axios.post(`/api/admin/topics/${topicId}/delete-all-suggested`);
+        const count = response.data.deletedCount || 0;
+        alert(`${count}개의 후보 기사가 삭제 처리되었습니다.`);
+        fetchData(); // 데이터 새로고침
+      } catch (error) {
+        console.error("모든 후보 기사 삭제 실패:", error);
+        alert("작업에 실패했습니다. 서버 로그를 확인해주세요.");
+      }
+    },
   };
 
   const sensors = useSensors(
@@ -363,6 +389,12 @@ const AdminTopicDetailPage = () => {
           </button>
           <button type="button" onClick={handlers.handleArchiveTopic} className="delete-btn">
             토픽 보관 처리
+          </button>
+          <button type="button" onClick={handlers.handleUnpublishAllArticles} className="delete-btn">
+            모든 기사 발행 취소
+          </button>
+          <button type="button" onClick={handlers.handleDeleteAllSuggested} className="delete-btn">
+            모든 후보 기사 삭제
           </button>
         </div>
 
