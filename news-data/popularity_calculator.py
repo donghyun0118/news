@@ -63,7 +63,7 @@ def calculate_and_update_popularity():
         print(f"Found {len(topics_to_update)} topics to update.")
 
         update_queries = []
-        GRAVITY = 1.5
+        GRAVITY = 1.2
         now_utc = datetime.now(timezone.utc)
 
         for topic in topics_to_update:
@@ -79,10 +79,10 @@ def calculate_and_update_popularity():
                 if published_at.tzinfo is None:
                     published_at = published_at.replace(tzinfo=timezone.utc)
                 
-                age_in_hours = (now_utc - published_at).total_seconds() / 3600
+                age_in_days = (now_utc - published_at).total_seconds() / (3600 * 24)
                 
-                # Hacker News Gravity Formula
-                final_score = raw_score / ((age_in_hours + 2) ** GRAVITY)
+                # Gravity Formula using days
+                final_score = raw_score / ((age_in_days + 2) ** GRAVITY)
 
             update_queries.append((final_score, topic['id']))
 

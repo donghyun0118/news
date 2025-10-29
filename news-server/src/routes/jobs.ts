@@ -42,6 +42,9 @@ let isPruningJobRunning = false;
  */
 if (JOB_SECRET) {
     router.all(`/trigger-collector/${JOB_SECRET}`, (req: Request, res: Response) => {
+        console.log("'/trigger-collector' endpoint was called. Logging incoming request headers:");
+        console.log(req.headers);
+
         // 잠금 로직은 collectLatestArticles 함수 내부에 구현되어 있습니다.
         console.log('API를 통해 기사 수집 작업을 시작합니다...');
         collectLatestArticles(); 
