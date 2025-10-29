@@ -130,7 +130,7 @@ if (JOB_SECRET) {
         }
 
         console.log('Starting home article pruning job via API...');
-        res.status(202.json({ message: "Home article pruning job started." });
+        res.status(202).json({ message: "Home article pruning job started." });
 
         isPruningJobRunning = true;
         const scriptPath = path.join(__dirname, "../../../news-data/home_article_pruner.py");
