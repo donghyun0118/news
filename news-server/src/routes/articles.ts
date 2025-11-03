@@ -93,7 +93,7 @@ router.get("/by-category", optionalAuthenticateUser, async (req: AuthenticatedRe
       SELECT a.*, COUNT(l.id) as like_count, MAX(IF(l_user.id IS NOT NULL, 1, 0)) as isLiked
       FROM tn_home_article a
       LEFT JOIN tn_article_like l ON a.id = l.article_id
-      LEFT JOIN tn_article_like l_user ON a.id = l_user.article_id AND l_user.user_id IS ?
+      LEFT JOIN tn_article_like l_user ON a.id = l_user.article_id AND l_user.user_id = ?
       WHERE a.category = ?
       GROUP BY a.id
       ORDER BY a.published_at DESC
@@ -159,7 +159,7 @@ router.get("/by-source", optionalAuthenticateUser, async (req: AuthenticatedRequ
       SELECT a.*, COUNT(l.id) as like_count, MAX(IF(l_user.id IS NOT NULL, 1, 0)) as isLiked
       FROM tn_home_article a
       LEFT JOIN tn_article_like l ON a.id = l.article_id
-      LEFT JOIN tn_article_like l_user ON a.id = l_user.article_id AND l_user.user_id IS ?
+      LEFT JOIN tn_article_like l_user ON a.id = l_user.article_id AND l_user.user_id = ?
       WHERE a.source = ?
       GROUP BY a.id
       ORDER BY a.published_at DESC
