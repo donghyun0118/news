@@ -79,8 +79,10 @@ const processArticles = (articles: any[]) => {
  *                 $ref: '#/components/schemas/ArticleWithFavicon'
  */
 router.get("/by-category", optionalAuthenticateUser, async (req: AuthenticatedRequest, res: Response) => {
-  const { name, limit = 30, offset = 0 } = req.query;
-  const userId = req.user?.userId;
+  const name = req.query.name as string;
+  const limit = parseInt(req.query.limit as string || '30', 10);
+  const offset = parseInt(req.query.offset as string || '0', 10);
+  const userId = req.user?.userId || null; // Use null for unbound user
 
   if (!name) {
     return res.status(400).json({ message: "카테고리 이름을 'name' 파라미터로 제공해야 합니다." });
@@ -91,13 +93,13 @@ router.get("/by-category", optionalAuthenticateUser, async (req: AuthenticatedRe
       SELECT a.*, COUNT(l.id) as like_count, MAX(IF(l_user.id IS NOT NULL, 1, 0)) as isLiked
       FROM tn_home_article a
       LEFT JOIN tn_article_like l ON a.id = l.article_id
-      LEFT JOIN tn_article_like l_user ON a.id = l_user.article_id AND l_user.user_id = ?
+      LEFT JOIN tn_article_like l_user ON a.id = l_user.article_id AND l_user.user_id IS ?
       WHERE a.category = ?
       GROUP BY a.id
       ORDER BY a.published_at DESC
       LIMIT ? OFFSET ?
     `;
-    const [rows] = await pool.query(query, [userId, name, Number(limit), Number(offset)]);
+    const [rows] = await pool.query(query, [userId, name, limit, offset]);
     res.json(processArticles(rows as any[]));
   } catch (error) {
     console.error("Error fetching articles by category:", error);
@@ -143,8 +145,10 @@ router.get("/by-category", optionalAuthenticateUser, async (req: AuthenticatedRe
  *                 $ref: '#/components/schemas/ArticleWithFavicon'
  */
 router.get("/by-source", optionalAuthenticateUser, async (req: AuthenticatedRequest, res: Response) => {
-  const { name, limit = 30, offset = 0 } = req.query;
-  const userId = req.user?.userId;
+  const name = req.query.name as string;
+  const limit = parseInt(req.query.limit as string || '30', 10);
+  const offset = parseInt(req.query.offset as string || '0', 10);
+  const userId = req.user?.userId || null; // Use null for unbound user
 
   if (!name) {
     return res.status(400).json({ message: "언론사 이름을 'name' 파라미터로 제공해야 합니다." });
@@ -155,13 +159,13 @@ router.get("/by-source", optionalAuthenticateUser, async (req: AuthenticatedRequ
       SELECT a.*, COUNT(l.id) as like_count, MAX(IF(l_user.id IS NOT NULL, 1, 0)) as isLiked
       FROM tn_home_article a
       LEFT JOIN tn_article_like l ON a.id = l.article_id
-      LEFT JOIN tn_article_like l_user ON a.id = l_user.article_id AND l_user.user_id = ?
+      LEFT JOIN tn_article_like l_user ON a.id = l_user.article_id AND l_user.user_id IS ?
       WHERE a.source = ?
       GROUP BY a.id
       ORDER BY a.published_at DESC
       LIMIT ? OFFSET ?
     `;
-    const [rows] = await pool.query(query, [userId, name, Number(limit), Number(offset)]);
+    const [rows] = await pool.query(query, [userId, name, limit, offset]);
     res.json(processArticles(rows as any[]));
   } catch (error) {
     console.error("Error fetching articles by source:", error);
