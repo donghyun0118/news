@@ -144,6 +144,80 @@ router.get("/", authenticateUser, async (req: AuthenticatedRequest, res: Respons
 
 /**
  * @swagger
+ * /api/inquiry/download:
+ *   get:
+ *     tags:
+ *       - Inquiry
+ *     summary: 내 문의 첨부파일 다운로드
+ *     description: "로그인한 사용자가 자신이 작성한 문의에 첨부된 파일을 다운로드합니다."
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: "다운로드할 파일의 상대 경로"
+ *     responses:
+ *       200:
+ *         description: "파일 다운로드 성공"
+ *       403:
+ *         description: "접근 권한 없음"
+ *       404:
+ *         description: "파일을 찾을 수 없음"
+ */
+router.get("/download", authenticateUser, async (req: AuthenticatedRequest, res: Response) => {
+  const requestedRelativePath = req.query.path as string;
+  const userId = req.user?.userId;
+
+  if (!requestedRelativePath) {
+    return res.status(400).json({ message: "파일 경로가 필요합니다." });
+  }
+
+  try {
+    // Security Check: Verify the file belongs to the logged-in user
+    const [inquiryRows]: any = await pool.query(
+      "SELECT id FROM tn_inquiry WHERE file_path = ? AND user_id = ?",
+      [requestedRelativePath, userId]
+    );
+
+    if (inquiryRows.length === 0) {
+      return res.status(403).json({ message: "접근 권한이 없거나 파일을 찾을 수 없습니다." });
+    }
+
+    // --- File sending logic (copied from admin.ts's working version) ---
+    const appRoot = path.resolve(__dirname, '..', '..');
+    const intendedAbsolutePath = path.join(appRoot, requestedRelativePath);
+    const canonicalPath = path.resolve(intendedAbsolutePath);
+    const uploadDir = path.resolve(appRoot, 'uploads');
+
+    // This secondary check is good for defense-in-depth
+    if (!canonicalPath.startsWith(uploadDir)) {
+      return res.status(403).json({ message: "허용되지 않은 파일 경로입니다." });
+    }
+
+    res.download(canonicalPath, path.basename(canonicalPath), (err) => {
+      if (err) {
+        console.error("User file download error:", err);
+        if (!res.headersSent) {
+          if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+            res.status(404).json({ message: "파일을 찾을 수 없습니다." });
+          } else {
+            res.status(500).json({ message: "파일을 다운로드하는 중 오류가 발생했습니다." });
+          }
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error("Error during user file download:", error);
+    res.status(500).json({ message: "서버 오류가 발생했습니다." });
+  }
+});
+
+/**
+ * @swagger
  * /api/inquiry/{inquiryId}:
  *   get:
  *     tags:

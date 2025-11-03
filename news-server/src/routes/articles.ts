@@ -80,7 +80,7 @@ const processArticles = (articles: any[]) => {
  */
 router.get("/by-category", optionalAuthenticateUser, async (req: AuthenticatedRequest, res: Response) => {
   const name = req.query.name as string;
-  const limit = parseInt(req.query.limit as string, 10) || 30;
+  const limit = parseInt(req.query.limit as string, 10) || 100;
   const offset = parseInt(req.query.offset as string, 10) || 0;
   const userId = req.user?.userId || null; // Use null for unbound user
 
@@ -146,7 +146,7 @@ router.get("/by-category", optionalAuthenticateUser, async (req: AuthenticatedRe
  */
 router.get("/by-source", optionalAuthenticateUser, async (req: AuthenticatedRequest, res: Response) => {
   const name = req.query.name as string;
-  const limit = parseInt(req.query.limit as string, 10) || 30;
+  const limit = parseInt(req.query.limit as string, 10) || 100;
   const offset = parseInt(req.query.offset as string, 10) || 0;
   const userId = req.user?.userId || null; // Use null for unbound user
 

@@ -1,5 +1,5 @@
-import express, { Request, Response } from "express";
 import bcrypt from "bcryptjs";
+import express, { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import type { RowDataPacket } from "mysql2";
 import pool from "../config/db";
@@ -223,16 +223,18 @@ router.post("/login", validateLogin, async (req: Request, res: Response) => {
     }
 
     // 사용자 계정 상태 확인
-    if (user.status === 'DELETED') {
+    if (user.status === "DELETED") {
       return res.status(401).json({ message: "탈퇴한 계정입니다." });
     }
-    if (user.status === 'SUSPENDED') {
+    if (user.status === "SUSPENDED") {
       return res.status(401).json({ message: "이용이 정지된 계정입니다." });
     }
 
     const jwtSecret = process.env.USER_JWT_SECRET || "default_fallback_secret";
-    if (jwtSecret === 'default_fallback_secret') {
-        console.warn('Warning: USER_JWT_SECRET environment variable is not set. Using a default secret key for development.');
+    if (jwtSecret === "default_fallback_secret") {
+      console.warn(
+        "Warning: USER_JWT_SECRET environment variable is not set. Using a default secret key for development."
+      );
     }
 
     const token = jwt.sign({ userId: user.id, name: user.name }, jwtSecret, { expiresIn: "5m" });
@@ -244,7 +246,13 @@ router.post("/login", validateLogin, async (req: Request, res: Response) => {
 
     res.json({
       token,
-      user: { id: user.id, name: user.name, email: user.email, nickname: user.nickname, profile_image_url: user.profile_image_url },
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        nickname: user.nickname,
+        profile_image_url: user.profile_image_url,
+      },
     });
   } catch (error) {
     console.error("Error during login:", error);

@@ -2,12 +2,27 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { DatabaseModule } from './database/database.module'; // <--- 1. 이 줄을 추가하세요.
+import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
+import { InquiryModule } from './inquiry/inquiry.module';
+import { SavedModule } from './saved/saved.module';
+import { ArticlesModule } from './articles/articles.module';
+import { TopicsModule } from './topics/topics.module';
+import { JobsModule } from './jobs/jobs.module';
 
 @Module({
-  imports: [ConfigModule.forRoot(), DatabaseModule, AuthModule, UserModule], // <--- 2. 여기에 DatabaseModule을 추가하세요.
+  imports: [
+    ConfigModule.forRoot(),
+    DatabaseModule,
+    AuthModule,
+    UserModule,
+    InquiryModule,
+    SavedModule,
+    ArticlesModule,
+    TopicsModule,
+    JobsModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })

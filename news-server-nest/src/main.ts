@@ -17,6 +17,16 @@ async function bootstrap() {
     .setTitle('Different News API (Nest.js)')
     .setDescription('Nest.js로 마이그레이션 중인 API 명세입니다.')
     .setVersion('1.0')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        name: 'Authorization',
+        in: 'header',
+      },
+      'bearerAuth',
+    )
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api-docs', app, document); // http://localhost:3001/api-docs 로 접속

@@ -29,10 +29,120 @@ router.get("/health", (req: Request, res: Response) => {
   res.json({ status: "ok" });
 });
 
+/**
+ * @swagger
+ * /api/admin/login:
+ *   post:
+ *     tags: [Admin]
+ *     summary: 관리자 로그인
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [username, password]
+ *             properties:
+ *               username:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: 로그인 성공, JWT 토큰 반환
+ *       401:
+ *         description: 잘못된 인증 정보
+ */
 router.post("/login", handleAdminLogin);
 
 // --- 이하 모든 API는 인증이 필요합니다 ---
 router.use(authenticateAdmin);
+
+/**
+ * @swagger
+ * /api/admin/download:
+ *   get:
+ *     tags: [Admin]
+ *     summary: 첨부파일 다운로드 (관리자용)
+ *     description: "관리자가 문의 내역 첨부파일을 안전하게 다운로드합니다."
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: "다운로드할 파일의 상대 경로"
+ *     responses:
+ *       200:
+ *         description: "파일 다운로드 성공"
+ *       400:
+ *         description: "잘못된 요청"
+ *       403:
+ *         description: "허용되지 않은 경로"
+ *       404:
+ *         description: "파일을 찾을 수 없음"
+ */
+const createContentDispositionHeader = (filename: string): string => {
+  const asciiFallback = filename
+    .replace(/[^\x20-\x7E]/g, "_") // replace non-ASCII with underscore
+    .replace(/["\\]/g, "_") // prevent breaking quotes/backslashes
+    .trim() || "download";
+
+  const encodedFilename = encodeURIComponent(filename);
+  return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodedFilename}`;
+};
+
+router.get("/download", (req: Request, res: Response) => {
+  const requestedRelativePath = req.query.path;
+
+  if (typeof requestedRelativePath !== "string" || requestedRelativePath.trim() === "") {
+    return res.status(400).json({ message: "파일 경로가 필요합니다." });
+  }
+
+  const appRoot = path.resolve(__dirname, "..", "..");
+  const uploadRoot = path.resolve(appRoot, "uploads");
+  const intendedAbsolutePath = path.resolve(appRoot, requestedRelativePath);
+
+  if (
+    intendedAbsolutePath !== uploadRoot &&
+    !intendedAbsolutePath.startsWith(uploadRoot + path.sep)
+  ) {
+    return res.status(403).json({ message: "허용되지 않은 파일에 대한 접근입니다." });
+  }
+
+  if (!fs.existsSync(intendedAbsolutePath)) {
+    console.error(`[Admin Download] File not found: ${intendedAbsolutePath}`);
+    return res.status(404).json({ message: "파일을 찾을 수 없습니다." });
+  }
+
+  const filename = path.basename(intendedAbsolutePath);
+  const extension = path.extname(filename).toLowerCase();
+  const contentTypeMap: Record<string, string> = {
+    ".pdf": "application/pdf",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".txt": "text/plain",
+  };
+  const contentType = contentTypeMap[extension] ?? "application/octet-stream";
+
+  res.setHeader("Content-Type", contentType);
+  res.setHeader("Content-Disposition", createContentDispositionHeader(filename));
+
+  const fileStream = fs.createReadStream(intendedAbsolutePath);
+  fileStream.on("error", (err) => {
+    console.error("[Admin Download] Stream error:", err);
+    if (!res.headersSent) {
+      res.status(500).json({ message: "파일을 전송하는 중 오류가 발생했습니다." });
+    } else {
+      res.destroy(err);
+    }
+  });
+  fileStream.pipe(res);
+});
 
 /**
  * @swagger
@@ -116,7 +226,7 @@ router.get("/inquiries/:inquiryId", async (req: Request, res: Response) => {
     const [inquiryRows]: any = await pool.query(
       `
       SELECT 
-        i.id, i.subject, i.content, i.file_path, i.status, i.created_at,
+        i.id, i.subject, i.content, i.file_path, i.file_originalname, i.status, i.created_at,
         u.nickname as user_nickname, u.email as user_email
       FROM 
         tn_inquiry i
@@ -953,13 +1063,13 @@ router.get("/download", (req: Request, res: Response) => {
     return res.status(400).json({ message: "파일 경로가 필요합니다." });
   }
 
-  const appRoot = path.resolve(__dirname, '..', '..');
+  const appRoot = path.resolve(__dirname, "..", "..");
   // Create an absolute path from the app root and the relative path from DB
   const requestedAbsolutePath = path.join(appRoot, requestedRelativePath);
 
   // For security, resolve it to a canonical path and check it's within the uploads folder
   const canonicalPath = path.resolve(requestedAbsolutePath);
-  const uploadDir = path.resolve(appRoot, 'uploads');
+  const uploadDir = path.resolve(appRoot, "uploads");
 
   if (!canonicalPath.startsWith(uploadDir)) {
     return res.status(403).json({ message: "허용되지 않은 파일에 대한 접근입니다." });
