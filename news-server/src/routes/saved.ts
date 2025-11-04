@@ -125,30 +125,61 @@ router.get("/articles", async (req: AuthenticatedRequest, res) => {
   const limit = parseInt(req.query.limit as string || '25', 10);
   const offset = parseInt(req.query.offset as string || '0', 10);
 
-  let query = `
-    SELECT 
-      s.id as saved_article_id, s.category_id, s.created_at as saved_at,
-      a.id as article_id, a.title, a.url, a.thumbnail_url, a.source, a.source_domain, a.published_at
-    FROM 
-      tn_user_saved_articles s
-    JOIN 
-      tn_article a ON s.article_id = a.id
-    WHERE 
-      s.user_id = ?
-  `;
-  const params: (string | number)[] = [userId!];
-
-  if (categoryId) {
-    query += " AND s.category_id = ?";
-    params.push(categoryId as string);
-  }
-
-  query += " ORDER BY s.created_at DESC LIMIT ? OFFSET ?";
-  params.push(limit, offset);
-
   try {
-    const [rows] = await pool.query(query, params);
-    res.json(rows);
+    // --- Main Query for paginated articles ---
+    let articlesQueryStr = `
+      SELECT 
+        s.id as saved_article_id, s.category_id, s.created_at as saved_at,
+        a.id as article_id, a.title, a.url, a.thumbnail_url, a.source, a.source_domain, a.published_at
+      FROM 
+        tn_user_saved_articles s
+      JOIN 
+        tn_article a ON s.article_id = a.id
+      WHERE 
+        s.user_id = ?
+    `;
+    const articleParams: (string | number)[] = [userId!];
+
+    if (categoryId) {
+      articlesQueryStr += " AND s.category_id = ?";
+      articleParams.push(categoryId as string);
+    }
+    articlesQueryStr += " ORDER BY s.created_at DESC LIMIT ? OFFSET ?";
+    articleParams.push(limit, offset);
+    const articlesQuery = pool.query(articlesQueryStr, articleParams);
+
+    // --- Total Count Query ---
+    let countQueryStr = "SELECT COUNT(*) as totalCount FROM tn_user_saved_articles WHERE user_id = ?";
+    const countParams: (string | number)[] = [userId!];
+    if (categoryId) {
+        countQueryStr += " AND category_id = ?";
+        countParams.push(categoryId as string);
+    }
+    const countQuery = pool.query(countQueryStr, countParams);
+
+    // --- Category Breakdown Query ---
+    const byCategoryQuery = pool.query(
+      `SELECT c.name as category, COUNT(usa.id) as count 
+       FROM tn_user_saved_articles usa 
+       JOIN tn_user_saved_article_categories c ON usa.category_id = c.id 
+       WHERE usa.user_id = ? AND usa.category_id IS NOT NULL 
+       GROUP BY c.name 
+       ORDER BY count DESC`,
+      [userId]
+    );
+
+    const [
+      [articleRows],
+      [countResult],
+      [byCategoryResult]
+    ] = await Promise.all([articlesQuery, countQuery, byCategoryQuery]);
+
+    res.json({
+      articles: articleRows,
+      totalCount: (countResult as any)[0].totalCount,
+      byCategory: byCategoryResult
+    });
+
   } catch (error) {
     console.error("Error fetching saved articles:", error);
     res.status(500).json({ message: "서버 오류가 발생했습니다." });

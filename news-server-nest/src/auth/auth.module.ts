@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
-import type { SignOptions } from 'jsonwebtoken';
 import { PassportModule } from '@nestjs/passport';
+import type { SignOptions } from 'jsonwebtoken';
 import { DatabaseModule } from '../database/database.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -29,10 +29,11 @@ import { OptionalJwtAuthGuard } from './optional-jwt.guard';
         const rawExpiresIn =
           configService.get<string>('USER_JWT_EXPIRES_IN') ||
           configService.get<string>('ADMIN_JWT_EXPIRES_IN') ||
-          '5m';
+          '12h';
 
-        const expiresIn: SignOptions['expiresIn'] =
-          /^\d+$/.test(rawExpiresIn) ? Number(rawExpiresIn) : (rawExpiresIn as SignOptions['expiresIn']);
+        const expiresIn: SignOptions['expiresIn'] = /^\d+$/.test(rawExpiresIn)
+          ? Number(rawExpiresIn)
+          : (rawExpiresIn as SignOptions['expiresIn']);
         return {
           secret: secret,
           signOptions: {

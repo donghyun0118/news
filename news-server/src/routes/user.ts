@@ -416,7 +416,8 @@ router.get("/me/liked-articles", authenticateUser, async (req: AuthenticatedRequ
   const offset = parseInt(req.query.offset as string || '0', 10);
 
   try {
-    const query = `
+    // Query for the paginated list of articles
+    const articlesQuery = pool.query(`
       SELECT
         a.*,
         (SELECT COUNT(*) FROM tn_article_like WHERE article_id = a.id) as like_count
@@ -429,17 +430,26 @@ router.get("/me/liked-articles", authenticateUser, async (req: AuthenticatedRequ
       ORDER BY
         ul.created_at DESC
       LIMIT ? OFFSET ?;
-    `;
+    `, [userId, limit, offset]);
 
-    const [rows] = await pool.query(query, [userId, limit, offset]);
+    // Query for the total count of liked articles
+    const countQuery = pool.query("SELECT COUNT(*) as totalCount FROM tn_article_like WHERE user_id = ?", [userId]);
+
+    const [
+      [articleRows],
+      [countResult]
+    ] = await Promise.all([articlesQuery, countQuery]);
     
-    const articlesWithFavicon = (rows as any[]).map(article => ({
+    const articlesWithFavicon = (articleRows as any[]).map(article => ({
       ...article,
       isLiked: true, // 이 API는 좋아요 누른 기사만 반환하므로 항상 true
       favicon_url: FAVICON_URLS[article.source_domain] || null,
     }));
 
-    res.json(articlesWithFavicon);
+    res.json({
+      articles: articlesWithFavicon,
+      totalCount: (countResult as any)[0].totalCount
+    });
   } catch (error) {
     console.error("Error fetching liked articles:", error);
     res.status(500).json({ message: "Server error" });

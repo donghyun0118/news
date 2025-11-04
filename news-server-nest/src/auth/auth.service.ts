@@ -6,14 +6,14 @@ import {
   InternalServerErrorException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
+import type { SignOptions } from 'jsonwebtoken';
 import type { Pool, RowDataPacket } from 'mysql2/promise';
 import { DB_CONNECTION_POOL } from '../database/database.constants';
-import { SignUpDto } from './dto/sign-up.dto';
 import { LoginDto } from './dto/login.dto';
-import type { SignOptions } from 'jsonwebtoken';
+import { SignUpDto } from './dto/sign-up.dto';
 
 type ExistingUserRow = RowDataPacket & {
   email: string;
@@ -138,10 +138,7 @@ export class AuthService {
       }
 
       const user = rows[0];
-      const isPasswordCorrect = await bcrypt.compare(
-        password,
-        user.password,
-      );
+      const isPasswordCorrect = await bcrypt.compare(password, user.password);
 
       if (!isPasswordCorrect) {
         throw new UnauthorizedException({
@@ -163,11 +160,9 @@ export class AuthService {
       const rawExpiresIn =
         this.configService.get<string>('USER_JWT_EXPIRES_IN') ||
         this.configService.get<string>('ADMIN_JWT_EXPIRES_IN') ||
-        '5m';
+        '12h';
 
-      const expiresIn: SignOptions['expiresIn'] = /^\d+$/.test(
-        rawExpiresIn,
-      )
+      const expiresIn: SignOptions['expiresIn'] = /^\d+$/.test(rawExpiresIn)
         ? Number(rawExpiresIn)
         : (rawExpiresIn as SignOptions['expiresIn']);
 
