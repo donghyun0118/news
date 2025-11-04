@@ -47,7 +47,7 @@ router.get("/", async (req: Request, res: Response) => {
       FROM tn_chat c
       JOIN tn_user u ON c.user_id = u.id
       WHERE c.topic_id = ? AND c.status = 'ACTIVE'
-      ORDER BY c.created_at ASC
+      ORDER BY c.created_at DESC
       LIMIT ?
       OFFSET ?
     `,
