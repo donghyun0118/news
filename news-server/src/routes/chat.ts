@@ -43,7 +43,7 @@ router.get("/", async (req: Request, res: Response) => {
   try {
     const [rows] = await pool.query(
       `
-      SELECT c.id, c.content, c.created_at, u.nickname
+      SELECT c.id, c.content, c.created_at, u.nickname, u.profile_image_url
       FROM tn_chat c
       JOIN tn_user u ON c.user_id = u.id
       WHERE c.topic_id = ? AND c.status = 'ACTIVE'
