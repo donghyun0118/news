@@ -49,36 +49,6 @@ const initializeSocket = (io: Server) => {
       console.log(`[Socket] User ${user.name} joined room: ${room}`);
     });
 
-    socket.on("send_message", async (data: { room: string; message: string; }) => {
-      if (!user) return;
-
-      const topicId = parseInt(data.room, 10);
-      if (isNaN(topicId)) {
-        console.error(`[Socket] Invalid room format received: ${data.room}`);
-        socket.emit("error_message", { message: "Invalid room format." });
-        return;
-      }
-
-      socket.to(data.room).emit("receive_message", {
-        id: Date.now(),
-        content: data.message,
-        created_at: new Date().toISOString(),
-        user_id: user.userId,
-        nickname: user.nickname,
-        profile_image_url: user.profile_image_url,
-      });
-
-      try {
-        await pool.query(
-          "INSERT INTO tn_chat (topic_id, user_id, content) VALUES (?, ?, ?)",
-          [topicId, user.userId, data.message]
-        );
-      } catch (dbError) {
-        console.error(`[DB] Failed to save message for room ${data.room}:`, dbError);
-        socket.emit("error_message", { message: "Failed to save message." });
-      }
-    });
-
     socket.on("disconnect", () => {
       console.log(`[Socket] User ${user.name} disconnected: ${socket.id}`);
       // 사용자가 연결을 끊으면 맵에서 제거

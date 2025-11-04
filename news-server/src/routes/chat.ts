@@ -135,7 +135,7 @@ router.post("/", authenticateUser, async (req: AuthenticatedRequest, res: Respon
     // Emit the new message to the corresponding topic room via Socket.IO
     const io = req.app.get("io");
     if (io && newMessage) {
-      io.to(`topic_${topicId}`).emit("receive_message", newMessage);
+      io.to(`topic-${topicId}`).emit("receive_message", newMessage);
     }
 
     // Respond to the POST request
