@@ -33,7 +33,8 @@ const port = Number(process.env.PORT ?? 3000);
 // --- CORS 설정 ---
 const allowedOrigins = [
   'http://localhost:3000',
-  'https://news-frontend-jg.vercel.app'
+  'https://news-frontend-jg.vercel.app',
+  'https://news02.onrender.com'
 ];
 
 const corsOptions = {
