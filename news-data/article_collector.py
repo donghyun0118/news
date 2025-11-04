@@ -28,7 +28,7 @@ import mysql.connector
 MODEL_NAME = os.getenv("EMBED_MODEL", "intfloat/multilingual-e5-base")
 TIME_WINDOW_HOURS = int(os.getenv("TIME_WINDOW_HOURS", "24"))
 TARGET_PER_SIDE = int(os.getenv("TARGET_ARTICLES_PER_SIDE", "20"))
-SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.80"))
+SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.78"))
 GLOBAL_DEADLINE = int(os.getenv("COLLECT_DEADLINE", "900"))  # 15 min
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 

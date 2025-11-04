@@ -120,9 +120,9 @@ router.post("/", authenticateUser, async (req: AuthenticatedRequest, res: Respon
     );
     const newMessageId = insertResult.insertId;
 
-    // Fetch the newly created message with user info
+    // Fetch the newly created message with user info, matching the frontend payload
     const [rows]: any = await connection.query(
-        `SELECT c.id, c.content, c.created_at, u.nickname 
+        `SELECT c.id, c.content as message, c.created_at, u.nickname as author, u.profile_image_url 
          FROM tn_chat c 
          JOIN tn_user u ON c.user_id = u.id 
          WHERE c.id = ?`,
@@ -135,7 +135,7 @@ router.post("/", authenticateUser, async (req: AuthenticatedRequest, res: Respon
     // Emit the new message to the corresponding topic room via Socket.IO
     const io = req.app.get("io");
     if (io && newMessage) {
-      io.to(`topic_${topicId}`).emit("new_message", newMessage);
+      io.to(`topic_${topicId}`).emit("receive_message", newMessage);
     }
 
     // Respond to the POST request
