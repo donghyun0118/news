@@ -30,8 +30,26 @@ const app: Express = express();
 app.set('trust proxy', 1); // 프록시 뒤의 실제 IP를 req.ip에 기록
 const port = Number(process.env.PORT ?? 3000);
 
+// --- CORS 설정 ---
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://news-frontend-jg.vercel.app'
+];
+
+const corsOptions = {
+  origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+    // origin이 없거나(예: 서버 내 요청) 허용된 목록에 있으면 허용
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true, // 인증 정보(쿠키, 토큰 등)를 포함한 요청 허용
+};
+
 // 전역 미들웨어
-app.use(cors());
+app.use(cors(corsOptions)); // 수정된 CORS 옵션 적용
 app.use(express.json());
 app.use("/public", express.static(path.join(__dirname, '..', 'public')));
 app.use(express.urlencoded({ extended: true }));
@@ -84,8 +102,9 @@ Stack: ${err.stack}
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: "*",
+    origin: allowedOrigins, // 수정된 CORS 옵션 적용
     methods: ["GET", "POST"],
+    credentials: true
   },
 });
 

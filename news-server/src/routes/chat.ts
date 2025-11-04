@@ -62,6 +62,96 @@ router.get("/", async (req: Request, res: Response) => {
 
 /**
  * @swagger
+ * /api/topics/{topicId}/chat:
+ *   post:
+ *     tags:
+ *       - Chat
+ *     summary: 새 채팅 메시지 작성
+ *     description: "로그인한 사용자가 특정 토픽에 대한 새 채팅 메시지를 작성합니다. 작성된 메시지는 DB에 저장되고, 해당 토픽의 모든 클라이언트에게 실시간으로 전송됩니다."
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: topicId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: "메시지를 작성할 토픽의 ID"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [content]
+ *             properties:
+ *               content:
+ *                 type: string
+ *                 description: "메시지 내용 (1000자 이하)"
+ *                 example: "안녕하세요!"
+ *     responses:
+ *       201:
+ *         description: "메시지 작성 성공. 작성된 메시지 정보를 반환합니다."
+ *       400:
+ *         description: "메시지 내용이 비어있거나 너무 김"
+ *       401:
+ *         description: "인증 실패"
+ */
+router.post("/", authenticateUser, async (req: AuthenticatedRequest, res: Response) => {
+  const { topicId } = req.params;
+  const userId = req.user?.userId;
+  const { content } = req.body;
+
+  if (!content || typeof content !== 'string' || content.trim().length === 0) {
+    return res.status(400).json({ message: "메시지 내용이 비어있습니다." });
+  }
+  if (content.length > 1000) {
+    return res.status(400).json({ message: "메시지는 1000자 이하로 입력해주세요." });
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // Insert the new message
+    const [insertResult]: any = await connection.query(
+      "INSERT INTO tn_chat (topic_id, user_id, content) VALUES (?, ?, ?)",
+      [topicId, userId, content.trim()]
+    );
+    const newMessageId = insertResult.insertId;
+
+    // Fetch the newly created message with user info
+    const [rows]: any = await connection.query(
+        `SELECT c.id, c.content, c.created_at, u.nickname 
+         FROM tn_chat c 
+         JOIN tn_user u ON c.user_id = u.id 
+         WHERE c.id = ?`,
+        [newMessageId]
+    );
+    const newMessage = rows[0];
+
+    await connection.commit();
+
+    // Emit the new message to the corresponding topic room via Socket.IO
+    const io = req.app.get("io");
+    if (io && newMessage) {
+      io.to(`topic_${topicId}`).emit("new_message", newMessage);
+    }
+
+    // Respond to the POST request
+    res.status(201).json(newMessage);
+
+  } catch (error) {
+    await connection.rollback();
+    console.error("Error posting new message:", error);
+    res.status(500).json({ message: "메시지를 전송하는 중 오류가 발생했습니다." });
+  } finally {
+    connection.release();
+  }
+});
+
+/**
+ * @swagger
  * /api/chat/{messageId}:
  *   delete:
  *     tags:
