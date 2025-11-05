@@ -1,5 +1,7 @@
 import { Request, Response, Router } from "express";
+import { execFile } from "child_process";
 import fs from "fs";
+import os from "os";
 import path from "path";
 import pool from "../config/db";
 import { FAVICON_URLS } from "../config/favicons";
@@ -17,12 +19,6 @@ const router = Router();
  *     responses:
  *       200:
  *         description: "아바타 이미지 URL 배열"
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 type: string
  */
 router.get("/avatars", (req: Request, res: Response) => {
   const avatarDir = path.join(__dirname, "../../public/avatars");
@@ -162,28 +158,6 @@ router.get("/topics/popular-all", async (req: Request, res: Response) => {
  *     responses:
  *       200:
  *         description: 토픽 정보와 관련 기사 목록을 반환했습니다.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 topic:
- *                   type: object
- *                 articles:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       favicon_url:
- *                         type: string
- *                       isLiked:
- *                         type: boolean
- *                         description: "현재 사용자가 이 기사를 '좋아요' 했는지 여부"
- *                       isSaved:
- *                         type: boolean
- *                         description: "현재 사용자가 이 기사를 '저장' 했는지 여부"
- *       404:
- *         description: 해당 토픽을 찾을 수 없습니다.
  */
 router.get("/topics/:topicId", optionalAuthenticateUser, async (req: AuthenticatedRequest, res: Response) => {
   const { topicId } = req.params;
@@ -223,7 +197,6 @@ router.get("/topics/:topicId", optionalAuthenticateUser, async (req: Authenticat
       [userId, userId, topicId] // userId is used twice now
     );
 
-    // Add favicon_url to each article
     const articlesWithFavicon = (articleRows as any[]).map((article) => ({
       ...article,
       isLiked: Boolean(article.isLiked), // Convert 0/1 to false/true
@@ -311,8 +284,8 @@ router.post("/topics/:topicId/view", optionalAuthenticateUser, async (req: Authe
  * /api/search:
  *   get:
  *     tags: [Articles]
- *     summary: 기사 검색
- *     description: "검색어(q)를 받아 제목과 설명에서 일치하는 기사를 최신순으로 검색합니다."
+ *     summary: 기사 검색 (AI 시맨틱 검색)
+ *     description: "검색어(q)를 받아, AI 모델을 통해 의미적으로 가장 유사한 기사를 검색합니다."
  *     parameters:
  *       - in: query
  *         name: q
@@ -332,29 +305,55 @@ router.get("/search", optionalAuthenticateUser, async (req: AuthenticatedRequest
     return res.status(400).json({ message: "검색어를 입력해주세요." });
   }
 
-  const searchQuery = `%${query}%`;
+  // 1. Get query vector from Python script
+  const pythonCommand = process.env.PYTHON_EXECUTABLE_PATH || (os.platform() === "win32" ? "python" : "python3");
+  const scriptPath = path.join(__dirname, "../../news-data/embed_query.py");
 
   try {
+    const queryVector: number[] = await new Promise((resolve, reject) => {
+      execFile(pythonCommand, [scriptPath, query], (error, stdout, stderr) => {
+        if (error) {
+          console.error("Error executing embed_query.py:", stderr);
+          return reject(new Error("Failed to generate query embedding."));
+        }
+        try {
+          resolve(JSON.parse(stdout));
+        } catch (parseError) {
+          console.error("Error parsing python script output:", stdout);
+          reject(new Error("Failed to parse query embedding."));
+        }
+      });
+    });
+
+    // 2. Perform vector search in DB
+    const queryVectorStr = `[${queryVector.join(',')}]`; // Convert to JSON array string for TiDB
+    
     const [rows] = await pool.query(
-      `SELECT a.*, COUNT(l.id) AS like_count, MAX(IF(l_user.id IS NOT NULL, 1, 0)) as isLiked
+      `SELECT a.*, 
+              VEC_COSINE_DISTANCE(a.embedding, ?) as similarity,
+              COUNT(l.id) AS like_count, 
+              MAX(IF(l_user.id IS NOT NULL, 1, 0)) as isLiked
        FROM tn_home_article a
        LEFT JOIN tn_article_like l ON a.id = l.article_id
        LEFT JOIN tn_article_like l_user ON a.id = l_user.article_id AND l_user.user_id = ?
-       WHERE (a.title LIKE ? OR a.description LIKE ?)
+       WHERE a.embedding IS NOT NULL
        GROUP BY a.id
-       ORDER BY a.published_at DESC
-       LIMIT 50`,
-      [userId, searchQuery, searchQuery]
+       ORDER BY similarity ASC
+       LIMIT 25`,
+      [queryVectorStr, userId]
     );
+
     const articlesWithFavicon = (rows as any[]).map((article) => ({
       ...article,
       isLiked: Boolean(article.isLiked),
       favicon_url: FAVICON_URLS[article.source_domain] || null,
     }));
+
     res.json(articlesWithFavicon);
+
   } catch (error) {
-    console.error("Error searching articles:", error);
-    res.status(500).json({ message: "Server error" });
+    console.error("Error during semantic search:", error);
+    res.status(500).json({ message: "검색 중 오류가 발생했습니다." });
   }
 });
 

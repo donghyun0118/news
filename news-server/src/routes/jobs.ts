@@ -18,6 +18,7 @@ const pythonCommand = process.env.PYTHON_EXECUTABLE_PATH || (os.platform() === "
 // 각 작업의 동시 실행을 방지하기 위한 잠금 플래그
 let isPopularityJobRunning = false;
 let isPruningJobRunning = false;
+let isVectorIndexerRunning = false;
 
 /**
  * @swagger
@@ -153,6 +154,60 @@ if (JOB_SECRET) {
     pythonProcess.on("error", (err) => {
       console.error("Failed to start home article pruner script:", err);
       isPruningJobRunning = false;
+    });
+  });
+}
+
+/**
+ * @swagger
+ * /api/jobs/run-vector-indexer/{secret}:
+ *   post:
+ *     tags:
+ *       - Jobs
+ *     summary: 벡터 인덱싱 작업을 수동으로 트리거합니다.
+ *     description: "tn_home_article 테이블에서 아직 벡터화되지 않은 기사들을 찾아 임베딩을 생성하고 저장합니다."
+ *     parameters:
+ *       - in: path
+ *         name: secret
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: 작업을 실행하기 위한 비밀 키
+ *     responses:
+ *       202:
+ *         description: 작업이 성공적으로 시작되었습니다.
+ *       429:
+ *         description: 작업이 이미 진행 중입니다.
+ */
+if (JOB_SECRET) {
+  router.all(`/run-vector-indexer/${JOB_SECRET}`, (req: Request, res: Response) => {
+    if (isVectorIndexerRunning) {
+      return res.status(429).json({ message: "Vector indexer job is already in progress." });
+    }
+
+    console.log("Starting vector indexer job via API...");
+    res.status(202).json({ message: "Vector indexer job started." });
+
+    isVectorIndexerRunning = true;
+    const scriptPath = path.join(__dirname, "../../../news-data/vector_indexer.py");
+    const pythonProcess = spawn(pythonCommand, ["-u", scriptPath]);
+
+    pythonProcess.stdout.on("data", (data) => {
+      console.log(`[vector_indexer.py stdout]: ${data.toString().trim()}`);
+    });
+
+    pythonProcess.stderr.on("data", (data) => {
+      console.error(`[vector_indexer.py stderr]: ${data.toString().trim()}`);
+    });
+
+    pythonProcess.on("close", (code) => {
+      console.log(`Vector indexer script exited with code ${code}`);
+      isVectorIndexerRunning = false;
+    });
+
+    pythonProcess.on("error", (err) => {
+      console.error("Failed to start vector indexer script:", err);
+      isVectorIndexerRunning = false;
     });
   });
 }
