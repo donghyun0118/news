@@ -239,21 +239,37 @@ router.put(
 
 /**
  * @swagger
- * /api/user/me:
- *   delete:
+ * /api/user/me/delete:
+ *   post:
  *     tags:
  *       - User
  *     summary: "회원 탈퇴"
- *     description: "현재 로그인된 사용자의 계정을 비활성화(탈퇴) 처리합니다."
+ *     description: "현재 로그인된 사용자의 계정을 비활성화(탈퇴) 처리합니다. 보안을 위해 현재 비밀번호를 확인합니다."
  *     security:
  *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [currentPassword]
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *                 format: password
+ *                 description: "계정 확인을 위한 현재 비밀번호"
  *     responses:
  *       200:
  *         description: "회원 탈퇴 성공"
+ *       400:
+ *         description: "비밀번호 미입력"
  *       401:
- *         description: "인증 실패"
+ *         description: "비밀번호 불일치"
+ *       404:
+ *         description: "사용자를 찾을 수 없음"
  */
-router.delete("/me", authenticateUser, async (req: AuthenticatedRequest, res: Response) => {
+router.post("/me/delete", authenticateUser, async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user?.userId;
   const { currentPassword } = req.body;
 

@@ -160,7 +160,7 @@ export default function AdminPage() {
               프롬프트 복사
             </button>
             <Link to="/admin/topics/new" className="create-new-topic-btn">
-              + 토픽 직접 생성
+              + 토픽 생성
             </Link>
           </div>
         </div>
