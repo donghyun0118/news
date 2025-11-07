@@ -1,7 +1,5 @@
 import { Request, Response, Router } from "express";
-import { execFile } from "child_process";
 import fs from "fs";
-import os from "os";
 import path from "path";
 import pool from "../config/db";
 import { FAVICON_URLS } from "../config/favicons";
@@ -38,7 +36,7 @@ router.get("/avatars", (req: Request, res: Response) => {
  * /api/topics:
  *   get:
  *     tags: [Topics]
- *     summary: 발행된 토픽 목록 조회
+ *     summary: 모든 발행된 토픽을 최신순으로 조회
  *     description: 사용자에게 노출되는 발행 상태의 토픽 목록을 최신순으로 반환합니다.
  *     responses:
  *       200:
@@ -65,7 +63,7 @@ router.get("/topics", async (req: Request, res: Response) => {
  * /api/topics/popular-ranking:
  *   get:
  *     tags: [Topics]
- *     summary: 인기 토픽 순위 조회
+ *     summary: 인기 토픽 10개 조회
  *     description: "주기적으로 계산된 인기 점수(popularity_score)를 기준으로 상위 10개의 토픽 목록을 반환합니다."
  *     responses:
  *       200:

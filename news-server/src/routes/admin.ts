@@ -383,7 +383,7 @@ router.get("/topics/suggested", async (req: Request, res: Response) => {
  * /api/admin/topics/published:
  *   get:
  *     tags: [Admin]
- *     summary: 발행됨 상태의 모든 토픽 목록 조회
+ *     summary: 모든 발행된 토픽을 최신순으로 조회
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -1278,15 +1278,21 @@ router.post("/topics/:topicId/collect-latest", async (req: Request, res: Respons
 
     // 1. Get topic keywords if new ones are not provided
     let keywords: string[] = [];
-    if (newKeywords && typeof newKeywords === 'string') {
-      keywords = newKeywords.split(',').map(k => k.trim()).filter(Boolean);
+    if (newKeywords && typeof newKeywords === "string") {
+      keywords = newKeywords
+        .split(",")
+        .map((k) => k.trim())
+        .filter(Boolean);
     } else {
       const [topicRows]: any = await connection.query("SELECT search_keywords FROM tn_topic WHERE id = ?", [topicId]);
       if (topicRows.length === 0) {
         await connection.rollback();
         return res.status(404).json({ message: "Topic not found." });
       }
-      keywords = (topicRows[0].search_keywords || '').split(',').map((k: string) => k.trim()).filter(Boolean);
+      keywords = (topicRows[0].search_keywords || "")
+        .split(",")
+        .map((k: string) => k.trim())
+        .filter(Boolean);
     }
 
     if (keywords.length === 0) {
@@ -1295,9 +1301,9 @@ router.post("/topics/:topicId/collect-latest", async (req: Request, res: Respons
     }
 
     // 2. Define sources and prepare queries
-    const LEFT_SOURCES = ['경향신문', '한겨레', '오마이뉴스'];
-    const RIGHT_SOURCES = ['조선일보', '중앙일보', '동아일보'];
-    const likeClauses = keywords.map(() => `(h.title LIKE ? OR h.description LIKE ?)`).join(' OR ');
+    const LEFT_SOURCES = ["경향신문", "한겨레", "오마이뉴스"];
+    const RIGHT_SOURCES = ["조선일보", "중앙일보", "동아일보"];
+    const likeClauses = keywords.map(() => `(h.title LIKE ? OR h.description LIKE ?)`).join(" OR ");
     const likeParams = keywords.flatMap((kw: string) => [`%${kw}%`, `%${kw}%`]);
 
     const createQuery = (sources: string[]) => {
@@ -1311,10 +1317,7 @@ router.post("/topics/:topicId/collect-latest", async (req: Request, res: Respons
     };
 
     // 3. Run queries in parallel
-    const [leftResults, rightResults] = await Promise.all([
-      createQuery(LEFT_SOURCES),
-      createQuery(RIGHT_SOURCES)
-    ]);
+    const [leftResults, rightResults] = await Promise.all([createQuery(LEFT_SOURCES), createQuery(RIGHT_SOURCES)]);
 
     const candidateRows = [...(leftResults[0] as any[]), ...(rightResults[0] as any[])];
 
@@ -1338,14 +1341,16 @@ router.post("/topics/:topicId/collect-latest", async (req: Request, res: Respons
       a.published_at,
       a.description,
       a.thumbnail_url,
-      'suggested'
+      "suggested",
     ]);
 
     const [insertResult]: any = await connection.query(insertQuery, [articlesToInsert]);
 
     await connection.commit();
-    res.status(201).json({ message: `성공적으로 ${insertResult.affectedRows}개의 최신 기사를 제안 목록에 추가했습니다.`, addedCount: insertResult.affectedRows });
-
+    res.status(201).json({
+      message: `성공적으로 ${insertResult.affectedRows}개의 최신 기사를 제안 목록에 추가했습니다.`,
+      addedCount: insertResult.affectedRows,
+    });
   } catch (error) {
     await connection.rollback();
     console.error("Error collecting latest articles:", error);
