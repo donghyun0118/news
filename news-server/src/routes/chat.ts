@@ -1,6 +1,8 @@
 import express, { Request, Response } from "express";
 import pool from "../config/db";
 import { authenticateUser, AuthenticatedRequest } from "../middleware/userAuth";
+import s3 from "../config/s3";
+import { v4 as uuidv4 } from "uuid";
 
 const router = express.Router({ mergeParams: true });
 
@@ -286,6 +288,81 @@ router.post("/:messageId/report", authenticateUser, async (req: AuthenticatedReq
   } catch (error) {
     console.error("Error logging report:", error);
     res.status(500).json({ message: "신고를 기록하는 중 오류가 발생했습니다." });
+  }
+});
+
+/**
+ * @swagger
+ * /api/chat/presigned-url:
+ *   post:
+ *     tags:
+ *       - Chat
+ *     summary: 파일 업로드를 위한 Presigned URL 생성
+ *     description: "클라이언트가 S3에 직접 파일을 업로드할 수 있도록, 서명된 임시 URL을 생성하여 반환합니다."
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [fileName, fileType]
+ *             properties:
+ *               fileName:
+ *                 type: string
+ *                 description: "업로드할 파일의 원본 이름"
+ *                 example: "my-image.png"
+ *               fileType:
+ *                 type: string
+ *                 description: "업로드할 파일의 MIME 타입"
+ *                 example: "image/png"
+ *     responses:
+ *       200:
+ *         description: "Presigned URL 생성 성공"
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 uploadUrl:
+ *                   type: string
+ *                 fileUrl:
+ *                   type: string
+ *       400:
+ *         description: "잘못된 요청"
+ */
+router.post("/presigned-url", authenticateUser, async (req: AuthenticatedRequest, res: Response) => {
+  const { fileName, fileType } = req.body;
+
+  if (!fileName || !fileType) {
+    return res.status(400).json({ message: "fileName and fileType are required." });
+  }
+
+  const fileKey = `chats/${uuidv4()}-${fileName}`;
+  const bucketName = process.env.AWS_S3_BUCKET_NAME;
+
+  if (!bucketName) {
+    console.error("AWS_S3_BUCKET_NAME is not set in environment variables.");
+    return res.status(500).json({ message: "Server configuration error." });
+  }
+
+  const s3Params = {
+    Bucket: bucketName,
+    Key: fileKey,
+    Expires: 60, // 1 minute
+    ContentType: fileType,
+    ACL: 'public-read'
+  };
+
+  try {
+    const uploadUrl = await s3.getSignedUrlPromise("putObject", s3Params);
+    const fileUrl = `https://${bucketName}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileKey}`;
+    
+    res.json({ uploadUrl, fileUrl });
+  } catch (error) {
+    console.error("Error creating presigned URL:", error);
+    res.status(500).json({ message: "Could not create presigned URL" });
   }
 });
 

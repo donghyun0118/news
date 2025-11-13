@@ -333,35 +333,6 @@ router.post("/inquiries/:inquiryId/reply", async (req: Request, res: Response) =
 
 /**
  * @swagger
- * /api/admin/login:
- *   post:
- *     tags: [Admin]
- *     summary: 관리자 로그인
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [username, password]
- *             properties:
- *               username:
- *                 type: string
- *               password:
- *                 type: string
- *     responses:
- *       200:
- *         description: 로그인 성공, JWT 토큰 반환
- *       401:
- *         description: 잘못된 인증 정보
- */
-router.post("/login", handleAdminLogin);
-
-// --- 이하 모든 API는 인증이 필요합니다 ---
-router.use(authenticateAdmin);
-
-/**
- * @swagger
  * /api/admin/topics/suggested:
  *   get:
  *     tags: [Admin]
@@ -1308,11 +1279,10 @@ router.post("/topics/:topicId/collect-latest", async (req: Request, res: Respons
 
     const createQuery = (sources: string[]) => {
       return connection.query(
-        `SELECT h.* FROM tn_home_article h
-         LEFT JOIN tn_article a ON h.url = a.url AND a.topic_id = ?
-         WHERE h.source IN (?) AND (${likeClauses}) AND a.id IS NULL
-         ORDER BY h.published_at DESC LIMIT 10`,
-        [topicId, sources, ...likeParams]
+        `SELECT h.title, h.url, h.source, h.source_domain, h.side, h.published_at, h.description, h.thumbnail_url FROM tn_home_article h
+         WHERE h.source IN (?) AND (${likeClauses})
+         ORDER BY h.published_at DESC LIMIT 10`, // Still limit to 10 per side for initial candidates
+        [sources, ...likeParams]
       );
     };
 
@@ -1323,33 +1293,58 @@ router.post("/topics/:topicId/collect-latest", async (req: Request, res: Respons
 
     if (candidateRows.length === 0) {
       await connection.rollback();
-      return res.status(200).json({ message: "새로운 최신 기사를 찾지 못했습니다.", addedCount: 0 });
+      return res.status(200).json({ message: "새로운 최신 기사를 찾지 못했습니다.", addedCount: 0, skippedCount: 0, addedArticles: [], skippedArticles: [] });
     }
 
-    // 4. Insert new articles as 'suggested'
-    const insertQuery = `
-      INSERT INTO tn_article (topic_id, source, source_domain, side, title, url, published_at, rss_desc, thumbnail_url, status)
-      VALUES ?
-    `;
-    const articlesToInsert = candidateRows.map((a: any) => [
-      topicId,
-      a.source,
-      a.source_domain,
-      a.side,
-      a.title,
-      a.url,
-      a.published_at,
-      a.description,
-      a.thumbnail_url,
-      "suggested",
-    ]);
+    // 4. Get existing article URLs for the topic
+    const [existingArticles]: any = await connection.query(
+      "SELECT url FROM tn_article WHERE topic_id = ?",
+      [topicId]
+    );
+    const existingUrls = new Set(existingArticles.map((a: any) => a.url));
 
-    const [insertResult]: any = await connection.query(insertQuery, [articlesToInsert]);
+    const articlesToInsert: any[] = [];
+    const addedArticlesInfo: { title: string; url: string }[] = [];
+    const skippedArticlesInfo: { title: string; url: string }[] = [];
+
+    // Separate candidates into to-be-added and skipped
+    for (const candidate of candidateRows) {
+      if (existingUrls.has(candidate.url)) {
+        skippedArticlesInfo.push({ title: candidate.title, url: candidate.url });
+      } else {
+        articlesToInsert.push([
+          topicId,
+          candidate.source,
+          candidate.source_domain,
+          candidate.side,
+          candidate.title,
+          candidate.url,
+          candidate.published_at,
+          candidate.description,
+          candidate.thumbnail_url,
+          "suggested",
+        ]);
+        addedArticlesInfo.push({ title: candidate.title, url: candidate.url });
+      }
+    }
+
+    let addedCount = 0;
+    if (articlesToInsert.length > 0) {
+      const insertQuery = `
+        INSERT INTO tn_article (topic_id, source, source_domain, side, title, url, published_at, rss_desc, thumbnail_url, status)
+        VALUES ?
+      `;
+      const [insertResult]: any = await connection.query(insertQuery, [articlesToInsert]);
+      addedCount = insertResult.affectedRows;
+    }
 
     await connection.commit();
     res.status(201).json({
-      message: `성공적으로 ${insertResult.affectedRows}개의 최신 기사를 제안 목록에 추가했습니다.`,
-      addedCount: insertResult.affectedRows,
+      message: `최신 기사 수집 완료. ${addedCount}개 추가, ${skippedArticlesInfo.length}개 건너뜀.`,
+      addedCount: addedCount,
+      skippedCount: skippedArticlesInfo.length,
+      addedArticles: addedArticlesInfo,
+      skippedArticles: skippedArticlesInfo,
     });
   } catch (error) {
     await connection.rollback();
@@ -1359,5 +1354,5 @@ router.post("/topics/:topicId/collect-latest", async (req: Request, res: Respons
     connection.release();
   }
 });
-
+  
 export default router;
