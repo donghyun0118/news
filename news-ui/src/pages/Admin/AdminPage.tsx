@@ -1,10 +1,13 @@
 import axios from "axios";
 import { useEffect, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 import { useAdminAuth } from "../../context/AdminAuthContext";
 import type { Topic } from "../../types";
 
-// 문의 타입 정의
+import WeeklyVisitorsChart from '../../components/WeeklyVisitorsChart';
+
+// 타입 정의
 interface Inquiry {
   id: number;
   subject: string;
@@ -13,192 +16,197 @@ interface Inquiry {
   user_nickname: string;
 }
 
-const formatPublishedAt = (value?: string | null) => {
-  if (!value) {
-    return "";
-  }
+interface AdminStats {
+  topics: {
+    published: number;
+    suggested: number;
+  };
+  inquiries: {
+    total: number;
+    pending: number;
+  };
+  users: {
+    total: number;
+    today: number;
+  };
+}
+
+const formatDateTime = (value?: string | null) => {
+  if (!value) return "N/A";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  return `${year}.${month}.${day} ${hours}:${minutes}`;
+  if (Number.isNaN(date.getTime())) return "Invalid Date";
+  return date.toLocaleString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 };
 
-const TOPIC_PROMPT =
-  "현재 대한민국에서 가장 인기있는 토픽 5개(한경오합쳐서 기사 10개, 조중동에 기사 10개 정도는 있어야 함)와 각 토픽에 대한 단어형 키워드 3~5개, 중도 입장에서의 요약을 작성해줘.";
+const PROMPT_TEXT = "현재 대한민국에서 가장 인기있는 토픽 5개(한경오합쳐서 기사 10개, 조중동에 기사 10개 정도는 있어야 함)와 각 토픽에 대한 단어형 키워드 3~5개, 중도 입장에서의 요약을 작성해줘.";
+
+const handleCopyPrompt = () => {
+  navigator.clipboard.writeText(PROMPT_TEXT)
+    .then(() => {
+      toast.success("프롬프트 텍스트가 클립보드에 복사되었습니다!");
+    })
+    .catch((err) => {
+      console.error("Failed to copy prompt text: ", err);
+      toast.error("프롬프트 텍스트 복사에 실패했습니다.");
+    });
+};
 
 export default function AdminPage() {
-  const [publishedTopics, setPublishedTopics] = useState<Topic[]>([]);
-  const [inquiries, setInquiries] = useState<Inquiry[]>([]); // 문의 목록 상태 추가
-  const location = useLocation();
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [recentTopics, setRecentTopics] = useState<Topic[]>([]);
+  const [recentInquiries, setRecentInquiries] = useState<Inquiry[]>([]);
   const navigate = useNavigate();
   const { logout } = useAdminAuth();
 
-  const handleLogout = () => {
-    logout();
-    navigate("/admin/login", { replace: true });
-  };
-
-  const handleCopyPrompt = async () => {
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(TOPIC_PROMPT);
-      } else {
-        const textarea = document.createElement("textarea");
-        textarea.value = TOPIC_PROMPT;
-        textarea.style.position = "fixed";
-        textarea.style.opacity = "0";
-        document.body.appendChild(textarea);
-        textarea.focus();
-        textarea.select();
-        document.execCommand("copy");
-        document.body.removeChild(textarea);
-      }
-      alert("프롬프트를 클립보드에 복사했습니다.");
-    } catch (error) {
-      console.error("Failed to copy prompt", error);
-      alert("복사에 실패했습니다. 브라우저 설정을 확인해 주세요.");
-    }
-  };
-
   const fetchData = async () => {
     try {
-      // 기존 토픽 데이터 로드
-      const publishedRes = await axios.get("/api/admin/topics/published");
-      setPublishedTopics(publishedRes.data);
-
-      // 문의 내역 데이터 로드
-      const inquiriesRes = await axios.get("/api/admin/inquiries");
-      setInquiries(inquiriesRes.data);
+      // API 엔드포인트들은 예시이며, 실제 백엔드 구현이 필요합니다.
+      const [statsRes, topicsRes, inquiriesRes] = await Promise.all([
+        axios.get("/api/admin/stats"), // 가상의 통계 API
+        axios.get("/api/admin/topics/published?limit=5"), // 최신 5개 토픽
+        axios.get("/api/admin/inquiries?limit=5"), // 최신 5개 문의
+      ]);
+      setStats(statsRes.data);
+      setRecentTopics(topicsRes.data);
+      setRecentInquiries(inquiriesRes.data);
     } catch (error) {
-      console.error("데이터를 불러오는 중 오류가 발생했습니다.", error);
+      console.error("대시보드 데이터를 불러오는 중 오류가 발생했습니다.", error);
+      // 일부 API 실패 시에도 UI가 깨지지 않도록 기본값 설정
+      setStats(
+        stats ?? {
+          topics: { published: 0, suggested: 0 },
+          inquiries: { total: 0, pending: 0 },
+          users: { total: 0, today: 0 },
+        }
+      );
     }
   };
 
   useEffect(() => {
     fetchData();
-  }, [location.pathname]);
-
-  const publishedCount = publishedTopics.length;
-  const inquiryCount = inquiries.length; // 문의 수
+  }, []);
 
   return (
-    <div className="admin-container admin-page">
-      <div className="admin-back-row">
-        <Link to="/" className="back-link">
-          ← 홈으로 돌아가기
-        </Link>
-        <button type="button" className="logout-btn" onClick={handleLogout}>
+    <div className="admin-container">
+      <header className="admin-page-header">
+        <h1>관리자 대시보드</h1>
+        <button type="button" className="logout-btn" onClick={() => { logout(); navigate("/admin/login", { replace: true }); }}>
           로그아웃
         </button>
+      </header>
+
+      {/* 1. 핵심 지표 그리드 */}
+      <section className="admin-section">
+        <div className="metric-grid">
+          <div className="metric-card">
+            <span className="metric-label">총 발행 토픽</span>
+            <span className="metric-value">{stats?.topics.published ?? "..."}</span>
+          </div>
+          <div className="metric-card">
+            <span className="metric-label">답변 대기 문의</span>
+            <span className="metric-value">{stats?.inquiries.pending ?? "..."}</span>
+          </div>
+          <div className="metric-card">
+            <span className="metric-label">총 사용자</span>
+            <span className="metric-value">{stats?.users.total ?? "..."}</span>
+          </div>
+          <div className="metric-card">
+            <span className="metric-label">오늘 가입자</span>
+            <span className="metric-value">{stats?.users.today ?? "..."}</span>
+          </div>
+        </div>
+      </section>
+
+      {/* 2. 메인 대시보드 그리드 (최신 활동 & 주요 기능) */}
+      <div className="dashboard-grid">
+        {/* 2.1. 최근 활동 섹션 */}
+        <div className="dashboard-column">
+          <div className="dashboard-card">
+            <div className="dashboard-card-header">
+              <h3>최근 등록된 문의</h3>
+              <Link to="/admin/inquiries" className="view-all-link">
+                전체 보기 →
+              </Link>
+            </div>
+            <div className="dashboard-card-body">
+              {recentInquiries.length > 0 ? (
+                <ul className="activity-list">
+                  {recentInquiries.map((item) => (
+                    <li key={item.id}>
+                      <Link to={`/admin/inquiries/${item.id}`}>
+                        <span className="activity-title">{item.subject}</span>
+                        <span className="activity-meta">{item.user_nickname} · {formatDateTime(item.created_at)}</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="empty-list-text">최근 문의가 없습니다.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="dashboard-card">
+            <div className="dashboard-card-header">
+              <h3>최근 발행된 토픽</h3>
+              <Link to="/admin/topics" className="view-all-link">
+                전체 보기 →
+              </Link>
+            </div>
+            <div className="dashboard-card-body">
+              {recentTopics.length > 0 ? (
+                <ul className="activity-list">
+                  {recentTopics.map((item) => (
+                    <li key={item.id}>
+                      <Link to={`/admin/topics/${item.id}`}>
+                        <span className="activity-title">{item.display_name}</span>
+                        <span className="activity-meta">{formatDateTime(item.published_at)} 발행</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="empty-list-text">최근 발행된 토픽이 없습니다.</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 2.2. 주요 기능 및 통계 섹션 */}
+        <div className="dashboard-column">
+          <div className="dashboard-card">
+            <div className="dashboard-card-header">
+              <h3>주요 기능</h3>
+            </div>
+            <div className="dashboard-card-body quick-actions">
+              <Link to="/admin/topics/new" className="quick-action-btn">
+                + 새 토픽 생성
+              </Link>
+              <Link to="/admin/users" className="quick-action-btn">
+                사용자 관리
+              </Link>
+              <Link to="/admin/system" className="quick-action-btn">
+                시스템 로그
+              </Link>
+              <button type="button" className="quick-action-btn" onClick={handleCopyPrompt}>
+                AI 프롬프트 복사
+              </button>
+            </div>
+          </div>
+
+          <div className="dashboard-card">
+            <div className="dashboard-card-body">
+              <WeeklyVisitorsChart />
+            </div>
+          </div>
+        </div>
       </div>
-
-      <section className="admin-hero">
-        <div className="admin-hero-text">
-          <h1>관리자 센터</h1>
-          <p>새로운 토픽을 생성하고, 발행된 토픽들을 관리하세요.</p>
-        </div>
-
-        <div className="admin-metrics">
-          <div className="admin-metric-card">
-            <span className="metric-label">발행 토픽</span>
-            <span className="metric-value">{publishedCount}</span>
-          </div>
-          <div className="admin-metric-card">
-            <span className="metric-label">받은 문의</span>
-            <span className="metric-value">{inquiryCount}</span>
-          </div>
-        </div>
-      </section>
-
-      {/* 문의 관리 섹션 */}
-      <section className="admin-section">
-        <div className="admin-section-header">
-          <div>
-            <h2>문의 관리</h2>
-            <p className="admin-section-subtitle">사용자가 제출한 문의 내역입니다.</p>
-          </div>
-        </div>
-        {inquiryCount > 0 ? (
-          <div className="admin-section-body">
-            {inquiries.map((inquiry) => (
-              <article key={inquiry.id} className="topic-approval-item admin-topic-card">
-                <div className="topic-info">
-                  <h3>{inquiry.subject}</h3>
-                  <p className="topic-meta">
-                    작성자: {inquiry.user_nickname} | {formatPublishedAt(inquiry.created_at)}
-                  </p>
-                </div>
-                <div className="topic-actions">
-                  <Link to={`/admin/inquiries/${inquiry.id}`} className="edit-btn-link curation-btn">
-                    내용 보기
-                  </Link>
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <div className="admin-empty-state">
-            <h3>받은 문의가 없습니다</h3>
-          </div>
-        )}
-      </section>
-
-      <section className="admin-section">
-        <div className="admin-section-header">
-          <div>
-            <h2>토픽 관리</h2>
-            <p className="admin-section-subtitle">새 토픽을 생성합니다.</p>
-          </div>
-          <div className="admin-section-actions">
-            <button type="button" onClick={handleCopyPrompt} className="create-new-topic-btn">
-              프롬프트 복사
-            </button>
-            <Link to="/admin/topics/new" className="create-new-topic-btn">
-              + 토픽 생성
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      <section className="admin-section">
-        <div className="admin-section-header">
-          <div>
-            <h2>발행된 토픽 목록</h2>
-            <p className="admin-section-subtitle">큐레이션 페이지로 이동해 기사 상태를 조정할 수 있습니다.</p>
-          </div>
-        </div>
-
-        {publishedCount > 0 ? (
-          <div className="admin-section-body">
-            {publishedTopics.map((topic) => (
-              <article key={topic.id} className="topic-approval-item admin-topic-card">
-                <div className="topic-info">
-                  <h3>{topic.display_name || topic.core_keyword}</h3>
-                  <p className="topic-meta">
-                    {topic.published_at ? `${formatPublishedAt(topic.published_at)} 발행` : "발행일 미정"}
-                  </p>
-                </div>
-                <div className="topic-actions">
-                  <Link to={`/admin/topics/${topic.id}`} className="edit-btn-link curation-btn">
-                    큐레이션 관리
-                  </Link>
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <div className="admin-empty-state">
-            <h3>발행된 토픽이 없습니다</h3>
-            <p>토픽을 발행하면 이곳에서 관리할 수 있습니다.</p>
-          </div>
-        )}
-      </section>
     </div>
   );
 }

@@ -1,54 +1,90 @@
 import express, { Request, Response } from "express";
-import multer from "multer";
 import path from "path";
-import fs from "fs";
 import pool from "../config/db";
 import { authenticateUser, AuthenticatedRequest } from "../middleware/userAuth";
-
 import { validateInquiry } from "../middleware/inquiryValidation";
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { v4 as uuidv4 } from "uuid";
 
 const router = express.Router();
 
-// Multer 설정: 파일 업로드 처리
-const uploadDir = path.resolve(__dirname, '..', '..', 'uploads', 'inquiries');
-// 서버 시작 시 업로드 폴더가 없으면 생성
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
+// S3 클라이언트 초기화
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
   },
-  filename: function (req, file, cb) {
-    // 파일 이름 중복을 피하기 위해 타임스탬프 추가
-    const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
-    const extension = path.extname(originalName);
-    const basename = path.basename(originalName, extension);
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, basename + '-' + uniqueSuffix + extension);
-  }
 });
 
-const upload = multer({
-  storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB 파일 사이즈 제한
+/**
+ * @swagger
+ * /api/inquiry/presigned-url:
+ *   post:
+ *     tags: [Inquiry]
+ *     summary: 문의 첨부파일 업로드를 위한 Presigned URL 생성
+ *     description: "파일을 S3에 직접 업로드하기 위한 1회용 URL을 생성합니다."
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [fileName, fileType]
+ *             properties:
+ *               fileName:
+ *                 type: string
+ *               fileType:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: "Presigned URL 생성 성공"
+ */
+router.post("/presigned-url", authenticateUser, async (req: AuthenticatedRequest, res: Response) => {
+  const { fileName, fileType } = req.body;
+  const userId = req.user?.userId;
+
+  if (!process.env.AWS_S3_BUCKET_NAME) {
+    return res.status(500).json({ message: "S3 버킷 이름이 설정되지 않았습니다." });
+  }
+
+  const uniqueFileName = `${uuidv4()}-${fileName}`;
+  const key = `inquiries/${userId}/${uniqueFileName}`;
+
+  const command = new PutObjectCommand({
+    Bucket: process.env.AWS_S3_BUCKET_NAME,
+    Key: key,
+    ContentType: fileType,
+  });
+
+  try {
+    const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 300 }); // 5 minutes
+    res.json({
+      url: presignedUrl,
+      filePath: key, // The client will send this back after uploading
+    });
+  } catch (error) {
+    console.error("Error creating presigned URL for inquiry:", error);
+    res.status(500).json({ message: "파일 업로드 URL을 생성하는 중 오류가 발생했습니다." });
+  }
 });
 
 /**
  * @swagger
  * /api/inquiry:
  *   post:
- *     tags:
- *       - Inquiry
- *     summary: 사용자 문의 제출
- *     description: "로그인한 사용자가 주제, 내용, (선택적)첨부파일을 포함하여 문의를 제출합니다."
+ *     tags: [Inquiry]
+ *     summary: 사용자 문의 제출 (S3 업로드 방식)
+ *     description: "로그인한 사용자가 S3에 파일을 먼저 업로드한 후, 그 경로와 함께 문의를 제출합니다."
  *     security:
  *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
- *         multipart/form-data:
+ *         application/json:
  *           schema:
  *             type: object
  *             required: [subject, content, privacy_agreement]
@@ -58,34 +94,27 @@ const upload = multer({
  *               content:
  *                 type: string
  *               privacy_agreement:
+ *                 type: boolean
+ *               filePath:
  *                 type: string
- *                 description: "개인정보 수집 및 동의 여부 (true여야 함)"
- *               attachment:
+ *                 description: "S3에 업로드된 파일의 경로"
+ *               originalName:
  *                 type: string
- *                 format: binary
- *                 description: "첨부 파일 (최대 5MB)"
+ *                 description: "원본 파일 이름"
  *     responses:
  *       201:
  *         description: "문의가 성공적으로 제출되었습니다."
  *       400:
  *         description: "필수 입력값 누락 또는 유효성 검사 실패"
- *       401:
- *         description: "인증 실패"
  */
-router.post("/", authenticateUser, upload.single('attachment'), validateInquiry, async (req: AuthenticatedRequest, res: Response) => {
-  const { subject, content } = req.body;
+router.post("/", authenticateUser, validateInquiry, async (req: AuthenticatedRequest, res: Response) => {
+  const { subject, content, filePath, originalName } = req.body;
   const userId = req.user?.userId;
-
-  // Resolve app root path to calculate relative path for DB
-  const appRoot = path.resolve(__dirname, '..', '..');
-  // Save a relative path to the DB to make it environment-agnostic
-  const filePath = req.file ? path.relative(appRoot, req.file.path).replace(/\\/g, '/') : null;
-  const originalName = req.file ? Buffer.from(req.file.originalname, 'latin1').toString('utf8') : null;
 
   try {
     await pool.query(
       "INSERT INTO tn_inquiry (user_id, subject, content, file_path, privacy_agreement, file_originalname) VALUES (?, ?, ?, ?, ?, ?)",
-      [userId, subject, content, filePath, true, originalName]
+      [userId, subject, content, filePath || null, true, originalName || null]
     );
     res.status(201).json({ message: "문의가 성공적으로 제출되었습니다." });
   } catch (error) {
@@ -148,8 +177,8 @@ router.get("/", authenticateUser, async (req: AuthenticatedRequest, res: Respons
  *   get:
  *     tags:
  *       - Inquiry
- *     summary: 내 문의 첨부파일 다운로드
- *     description: "로그인한 사용자가 자신이 작성한 문의에 첨부된 파일을 다운로드합니다."
+ *     summary: 내 문의 첨부파일 다운로드 URL 조회
+ *     description: "S3에 저장된 내 문의 첨부파일을 다운로드할 수 있는 임시 URL을 생성합니다."
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -158,61 +187,52 @@ router.get("/", authenticateUser, async (req: AuthenticatedRequest, res: Respons
  *         required: true
  *         schema:
  *           type: string
- *         description: "다운로드할 파일의 상대 경로"
+ *         description: "다운로드할 파일의 S3 키 (file_path)"
  *     responses:
  *       200:
- *         description: "파일 다운로드 성공"
+ *         description: "다운로드용 Presigned URL"
  *       403:
  *         description: "접근 권한 없음"
  *       404:
  *         description: "파일을 찾을 수 없음"
  */
 router.get("/download", authenticateUser, async (req: AuthenticatedRequest, res: Response) => {
-  const requestedRelativePath = req.query.path as string;
+  const s3Key = req.query.path as string;
   const userId = req.user?.userId;
 
-  if (!requestedRelativePath) {
+  if (!s3Key) {
     return res.status(400).json({ message: "파일 경로가 필요합니다." });
+  }
+  if (!process.env.AWS_S3_BUCKET_NAME) {
+    return res.status(500).json({ message: "S3 버킷 이름이 설정되지 않았습니다." });
   }
 
   try {
     // Security Check: Verify the file belongs to the logged-in user
     const [inquiryRows]: any = await pool.query(
-      "SELECT id FROM tn_inquiry WHERE file_path = ? AND user_id = ?",
-      [requestedRelativePath, userId]
+      "SELECT file_originalname FROM tn_inquiry WHERE file_path = ? AND user_id = ?",
+      [s3Key, userId]
     );
 
     if (inquiryRows.length === 0) {
       return res.status(403).json({ message: "접근 권한이 없거나 파일을 찾을 수 없습니다." });
     }
 
-    // --- File sending logic (copied from admin.ts's working version) ---
-    const appRoot = path.resolve(__dirname, '..', '..');
-    const intendedAbsolutePath = path.join(appRoot, requestedRelativePath);
-    const canonicalPath = path.resolve(intendedAbsolutePath);
-    const uploadDir = path.resolve(appRoot, 'uploads');
+    const originalName = inquiryRows[0].file_originalname || path.basename(s3Key);
 
-    // This secondary check is good for defense-in-depth
-    if (!canonicalPath.startsWith(uploadDir)) {
-      return res.status(403).json({ message: "허용되지 않은 파일 경로입니다." });
-    }
-
-    res.download(canonicalPath, path.basename(canonicalPath), (err) => {
-      if (err) {
-        console.error("User file download error:", err);
-        if (!res.headersSent) {
-          if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-            res.status(404).json({ message: "파일을 찾을 수 없습니다." });
-          } else {
-            res.status(500).json({ message: "파일을 다운로드하는 중 오류가 발생했습니다." });
-          }
-        }
-      }
+    const command = new GetObjectCommand({
+      Bucket: process.env.AWS_S3_BUCKET_NAME,
+      Key: s3Key,
+      ResponseContentDisposition: `attachment; filename="${encodeURIComponent(originalName)}"`
     });
 
+    const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 300 }); // 5 minutes
+
+    res.json({ url: presignedUrl });
+
   } catch (error) {
-    console.error("Error during user file download:", error);
-    res.status(500).json({ message: "서버 오류가 발생했습니다." });
+    console.error("Error creating presigned URL for download:", error);
+    res.status(500).json({ message: "파일 다운로드 URL을 생성하는 중 오류가 발생했습니다." });
   }
 });
 

@@ -273,6 +273,14 @@ router.post("/:messageId/report", authenticateUser, async (req: AuthenticatedReq
           "UPDATE tn_user SET warning_count = warning_count + 1 WHERE id = ?",
           [messageAuthorId]
         );
+
+        // Real-time notification to hide the message
+        const io = req.app.get("io");
+        const [topicRows]: any = await connection.query("SELECT topic_id FROM tn_chat WHERE id = ?", [messageId]);
+        if (io && topicRows.length > 0) {
+          const topicId = topicRows[0].topic_id;
+          io.to(`topic-${topicId}`).emit("message_hidden", { messageId: parseInt(messageId, 10) });
+        }
       }
       
       await connection.commit();

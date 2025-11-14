@@ -5,8 +5,19 @@ import os from "os";
 import path from "path";
 import pool from "../config/db";
 import { authenticateAdmin, handleAdminLogin } from "../middleware/auth";
+import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const router = express.Router();
+
+// S3 클라이언트 초기화
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  },
+});
 
 /**
  * @swagger
@@ -28,6 +39,141 @@ const router = express.Router();
 router.get("/health", (req: Request, res: Response) => {
   res.json({ status: "ok" });
 });
+
+/**
+ * @swagger
+ * /api/admin/stats:
+ *   get:
+ *     tags: [Admin]
+ *     summary: 관리자 대시보드 통계 조회
+ *     description: 대시보드에 필요한 주요 통계 지표를 한 번에 조회합니다.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: 통계 데이터
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 topics:
+ *                   type: object
+ *                   properties:
+ *                     published:
+ *                       type: integer
+ *                 inquiries:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     pending:
+ *                       type: integer
+ *                 users:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     today:
+ *                       type: integer
+ */
+router.get("/stats", async (req: Request, res: Response) => {
+  try {
+    const queries = [
+      pool.query("SELECT COUNT(*) as count FROM tn_topic WHERE status = 'published'"),
+      pool.query("SELECT COUNT(*) as count FROM tn_inquiry"),
+      pool.query("SELECT COUNT(*) as count FROM tn_inquiry WHERE status = 'SUBMITTED'"),
+      pool.query("SELECT COUNT(*) as count FROM tn_user"),
+      pool.query("SELECT COUNT(*) as count FROM tn_user WHERE created_at >= CURDATE()"),
+    ];
+
+    const results = await Promise.all(queries);
+
+    const stats = {
+      topics: {
+        published: (results[0][0] as any)[0].count,
+      },
+      inquiries: {
+        total: (results[1][0] as any)[0].count,
+        pending: (results[2][0] as any)[0].count,
+      },
+      users: {
+        total: (results[3][0] as any)[0].count,
+        today: (results[4][0] as any)[0].count,
+      },
+    };
+
+    res.json(stats);
+  } catch (error) {
+    console.error("Error fetching admin stats:", error);
+    res.status(500).json({ message: "통계 데이터를 불러오는 중 오류가 발생했습니다." });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/stats/visitors/weekly:
+ *   get:
+ *     tags: [Admin]
+ *     summary: 주간 순 방문자 수 통계 조회
+ *     description: "지난 7일간의 일일 순 방문자 수(unique visitors)를 조회하여 차트용 데이터로 반환합니다."
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: "지난 7일간의 방문자 수 데이터 배열"
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   date:
+ *                     type: string
+ *                     format: date
+ *                   visitors:
+ *                     type: integer
+ */
+router.get("/stats/visitors/weekly", async (req: Request, res: Response) => {
+  try {
+    const [rows]: any = await pool.query(`
+      SELECT
+        DATE_FORMAT(created_at, '%Y-%m-%d') as date,
+        COUNT(DISTINCT user_identifier) as visitors
+      FROM
+        tn_topic_view_log
+      WHERE
+        created_at >= CURDATE() - INTERVAL 6 DAY
+      GROUP BY
+        date
+      ORDER BY
+        date ASC;
+    `);
+
+    // Create a map of dates to visitor counts from the query results
+    const visitorMap = new Map(rows.map((row: any) => [row.date, row.visitors]));
+
+    // Create a complete 7-day array, filling in missing days with 0
+    const weeklyData = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateString = d.toISOString().split('T')[0];
+      
+      weeklyData.push({
+        date: dateString,
+        visitors: visitorMap.get(dateString) || 0,
+      });
+    }
+
+    res.json(weeklyData);
+  } catch (error) {
+    console.error("Error fetching weekly visitor stats:", error);
+    res.status(500).json({ message: "주간 방문자 통계를 불러오는 중 오류가 발생했습니다." });
+  }
+});
+
 
 /**
  * @swagger
@@ -63,8 +209,8 @@ router.use(authenticateAdmin);
  * /api/admin/download:
  *   get:
  *     tags: [Admin]
- *     summary: 첨부파일 다운로드 (관리자용)
- *     description: "관리자가 문의 내역 첨부파일을 안전하게 다운로드합니다."
+ *     summary: 첨부파일 다운로드 URL 조회 (관리자용)
+ *     description: "관리자가 문의 내역의 S3 첨부파일을 다운로드할 수 있는 임시 URL을 생성합니다."
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -73,73 +219,53 @@ router.use(authenticateAdmin);
  *         required: true
  *         schema:
  *           type: string
- *         description: "다운로드할 파일의 상대 경로"
+ *         description: "다운로드할 파일의 S3 키 (file_path)"
  *     responses:
  *       200:
- *         description: "파일 다운로드 성공"
+ *         description: "다운로드용 Presigned URL"
  *       400:
  *         description: "잘못된 요청"
- *       403:
- *         description: "허용되지 않은 경로"
  *       404:
  *         description: "파일을 찾을 수 없음"
  */
-const createContentDispositionHeader = (filename: string): string => {
-  const asciiFallback =
-    filename
-      .replace(/[^\x20-\x7E]/g, "_") // replace non-ASCII with underscore
-      .replace(/["\\]/g, "_") // prevent breaking quotes/backslashes
-      .trim() || "download";
+router.get("/download", async (req: Request, res: Response) => {
+  const s3Key = req.query.path as string;
 
-  const encodedFilename = encodeURIComponent(filename);
-  return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodedFilename}`;
-};
-
-router.get("/download", (req: Request, res: Response) => {
-  const requestedRelativePath = req.query.path;
-
-  if (typeof requestedRelativePath !== "string" || requestedRelativePath.trim() === "") {
+  if (!s3Key) {
     return res.status(400).json({ message: "파일 경로가 필요합니다." });
   }
-
-  const appRoot = path.resolve(__dirname, "..", "..");
-  const uploadRoot = path.resolve(appRoot, "uploads");
-  const intendedAbsolutePath = path.resolve(appRoot, requestedRelativePath);
-
-  if (intendedAbsolutePath !== uploadRoot && !intendedAbsolutePath.startsWith(uploadRoot + path.sep)) {
-    return res.status(403).json({ message: "허용되지 않은 파일에 대한 접근입니다." });
+  if (!process.env.AWS_S3_BUCKET_NAME) {
+    return res.status(500).json({ message: "S3 버킷 이름이 설정되지 않았습니다." });
   }
 
-  if (!fs.existsSync(intendedAbsolutePath)) {
-    console.error(`[Admin Download] File not found: ${intendedAbsolutePath}`);
-    return res.status(404).json({ message: "파일을 찾을 수 없습니다." });
-  }
+  try {
+    // Security Check: Verify the file exists in an inquiry record to get its original name
+    const [inquiryRows]: any = await pool.query(
+      "SELECT file_originalname FROM tn_inquiry WHERE file_path = ?",
+      [s3Key]
+    );
 
-  const filename = path.basename(intendedAbsolutePath);
-  const extension = path.extname(filename).toLowerCase();
-  const contentTypeMap: Record<string, string> = {
-    ".pdf": "application/pdf",
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".gif": "image/gif",
-    ".txt": "text/plain",
-  };
-  const contentType = contentTypeMap[extension] ?? "application/octet-stream";
-
-  res.setHeader("Content-Type", contentType);
-  res.setHeader("Content-Disposition", createContentDispositionHeader(filename));
-
-  const fileStream = fs.createReadStream(intendedAbsolutePath);
-  fileStream.on("error", (err) => {
-    console.error("[Admin Download] Stream error:", err);
-    if (!res.headersSent) {
-      res.status(500).json({ message: "파일을 전송하는 중 오류가 발생했습니다." });
-    } else {
-      res.destroy(err);
+    if (inquiryRows.length === 0) {
+      // Although it's an admin, we check if the file path is valid to prevent random S3 access
+      return res.status(404).json({ message: "해당 경로의 문의 파일을 찾을 수 없습니다." });
     }
-  });
-  fileStream.pipe(res);
+
+    const originalName = inquiryRows[0].file_originalname || path.basename(s3Key);
+
+    const command = new GetObjectCommand({
+      Bucket: process.env.AWS_S3_BUCKET_NAME,
+      Key: s3Key,
+      ResponseContentDisposition: `attachment; filename="${encodeURIComponent(originalName)}"`
+    });
+
+    const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 300 }); // 5 minutes
+
+    res.json({ url: presignedUrl });
+
+  } catch (error) {
+    console.error("Error creating admin presigned URL for download:", error);
+    res.status(500).json({ message: "파일 다운로드 URL을 생성하는 중 오류가 발생했습니다." });
+  }
 });
 
 /**
@@ -333,6 +459,282 @@ router.post("/inquiries/:inquiryId/reply", async (req: Request, res: Response) =
 
 /**
  * @swagger
+ * /api/admin/users:
+ *   get:
+ *     tags: [Admin]
+ *     summary: 모든 사용자 목록을 페이지네이션으로 조회
+ *     description: 모든 사용자 목록을 최신순으로 조회합니다. 페이지네이션을 지원합니다.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: "한 번에 가져올 사용자 수"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: "가져올 페이지 번호"
+ *     responses:
+ *       200:
+ *         description: 사용자 목록과 전체 개수
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 users:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 total:
+ *                   type: integer
+ */
+router.get("/users", async (req: Request, res: Response) => {
+  const limit = parseInt(req.query.limit as string, 10) || 20;
+  const page = parseInt(req.query.page as string, 10) || 1;
+  const offset = (page - 1) * limit;
+
+  try {
+    const queries = [
+      pool.query("SELECT id, email, nickname, status, warning_count, created_at FROM tn_user ORDER BY created_at DESC LIMIT ? OFFSET ?", [limit, offset]),
+      pool.query("SELECT COUNT(*) as total FROM tn_user"),
+    ];
+
+    const results = await Promise.all(queries);
+    const users = results[0][0];
+    const total = (results[1][0] as any)[0].total;
+
+    res.json({ users, total });
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/users/{userId}:
+ *   get:
+ *     tags: [Admin]
+ *     summary: 특정 사용자 상세 정보 조회
+ *     description: 특정 사용자의 상세 정보를 조회합니다.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: 사용자 상세 정보
+ *       404:
+ *         description: 사용자를 찾을 수 없음
+ */
+router.get("/users/:userId", async (req: Request, res: Response) => {
+  const { userId } = req.params;
+  try {
+    const [rows]: any = await pool.query("SELECT id, email, nickname, status, warning_count, created_at FROM tn_user WHERE id = ?", [userId]);
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.json(rows[0]);
+  } catch (error) {
+    console.error(`Error fetching user ${userId}:`, error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/users/{userId}:
+ *   patch:
+ *     tags: [Admin]
+ *     summary: 특정 사용자 정보 업데이트
+ *     description: 특정 사용자의 상태(status) 또는 경고 횟수(warning_count)를 업데이트합니다.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [ACTIVE, SUSPENDED]
+ *               warning_count:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: 업데이트 성공
+ *       400:
+ *         description: 잘못된 요청
+ *       404:
+ *         description: 사용자를 찾을 수 없음
+ */
+router.patch("/users/:userId", async (req: Request, res: Response) => {
+  const { userId } = req.params;
+  const { status, warning_count } = req.body;
+
+  if (!status && warning_count === undefined) {
+    return res.status(400).json({ message: "At least one field (status or warning_count) is required." });
+  }
+
+  const updateFields = [];
+  const params = [];
+
+  if (status) {
+    if (!['ACTIVE', 'SUSPENDED'].includes(status)) {
+      return res.status(400).json({ message: "Invalid status value." });
+    }
+    updateFields.push("status = ?");
+    params.push(status);
+  }
+
+  if (warning_count !== undefined) {
+    const count = parseInt(warning_count, 10);
+    if (isNaN(count) || count < 0) {
+      return res.status(400).json({ message: "Invalid warning_count value." });
+    }
+    updateFields.push("warning_count = ?");
+    params.push(count);
+  }
+
+  if (updateFields.length === 0) {
+    return res.status(400).json({ message: "No valid fields to update." });
+  }
+
+  params.push(userId);
+
+  try {
+    const [result]: any = await pool.query(
+      `UPDATE tn_user SET ${updateFields.join(", ")} WHERE id = ?`,
+      params
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "User not found or no changes were made." });
+    }
+
+    res.json({ message: "User updated successfully." });
+  } catch (error) {
+    console.error(`Error updating user ${userId}:`, error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+const ALLOWED_LOG_FILES = [
+  "news-server/debug_log.txt",
+  "news-server/home_collector_log.txt",
+  "news-data/collector.log",
+];
+
+/**
+ * @swagger
+ * /api/admin/logs:
+ *   get:
+ *     tags: [Admin]
+ *     summary: 사용 가능한 시스템 로그 파일 목록 조회
+ *     description: 관리자가 조회할 수 있는 시스템 로그 파일의 목록을 반환합니다.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: 로그 파일 목록
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   name:
+ *                     type: string
+ *                   path:
+ *                     type: string
+ */
+router.get("/logs", (req: Request, res: Response) => {
+  const logFiles = ALLOWED_LOG_FILES.map(filePath => ({
+    name: path.basename(filePath),
+    path: filePath,
+  }));
+  res.json(logFiles);
+});
+
+/**
+ * @swagger
+ * /api/admin/logs/view:
+ *   get:
+ *     tags: [Admin]
+ *     summary: 특정 로그 파일의 내용 조회
+ *     description: 지정된 로그 파일의 내용을 텍스트로 반환합니다.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: "조회할 로그 파일의 경로 (e.g., 'news-data/collector.log')"
+ *     responses:
+ *       200:
+ *         description: 로그 파일 내용
+ *         content:
+ *           text/plain:
+ *             schema:
+ *               type: string
+ *       400:
+ *         description: "경로가 지정되지 않음"
+ *       403:
+ *         description: "허용되지 않은 파일"
+ *       404:
+ *         description: "파일을 찾을 수 없음"
+ */
+router.get("/logs/view", (req: Request, res: Response) => {
+  const logPath = req.query.path as string;
+
+  if (!logPath) {
+    return res.status(400).json({ message: "Log file path is required." });
+  }
+
+  if (!ALLOWED_LOG_FILES.includes(logPath)) {
+    return res.status(403).json({ message: "Access to this log file is not permitted." });
+  }
+
+  const projectRoot = path.resolve(__dirname, '..', '..', '..');
+  const absolutePath = path.join(projectRoot, logPath);
+
+  fs.readFile(absolutePath, "utf8", (err, data) => {
+    if (err) {
+      if (err.code === 'ENOENT') {
+        return res.status(404).type('text').send(`Log file not found at: ${logPath}`);
+      }
+      console.error(`Error reading log file ${logPath}:`, err);
+      return res.status(500).type('text').send("Error reading log file.");
+    }
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.send(data);
+  });
+});
+
+
+/**
+ * @swagger
  * /api/admin/topics/suggested:
  *   get:
  *     tags: [Admin]
@@ -355,6 +757,12 @@ router.get("/topics/suggested", async (req: Request, res: Response) => {
  *   get:
  *     tags: [Admin]
  *     summary: 모든 발행된 토픽을 최신순으로 조회
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *         description: "결과를 제한할 숫자 (예: 5)"
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -364,10 +772,18 @@ router.get("/topics/suggested", async (req: Request, res: Response) => {
  *         description: 인증 실패
  */
 router.get("/topics/published", async (req: Request, res: Response) => {
+  const limit = parseInt(req.query.limit as string, 10);
+
   try {
-    const [rows] = await pool.query(
-      "SELECT id, display_name, published_at FROM tn_topic WHERE status = 'published' AND topic_type = 'CONTENT' ORDER BY published_at DESC"
-    );
+    let sql = "SELECT id, display_name, published_at FROM tn_topic WHERE status = 'published' AND topic_type = 'CONTENT' ORDER BY published_at DESC";
+    const params = [];
+
+    if (!isNaN(limit) && limit > 0) {
+      sql += " LIMIT ?";
+      params.push(limit);
+    }
+
+    const [rows] = await pool.query(sql, params);
     res.json(rows);
   } catch (error) {
     console.error("Error fetching published topics:", error);
@@ -472,29 +888,67 @@ router.patch("/topics/:topicId/reject", async (req: Request, res: Response) => {
 
 /**
  * @swagger
- * /api/admin/topics/published:
+ * /api/admin/topics:
  *   get:
  *     tags: [Admin]
- *     summary: 발행됨 상태의 모든 토픽 목록 조회
+ *     summary: 모든 콘텐츠 토픽 목록을 페이지네이션으로 조회
+ *     description: 모든 상태의 콘텐츠 토픽(topic_type = 'CONTENT') 목록을 최신순으로 조회합니다.
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: "한 번에 가져올 토픽 수"
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: "가져올 페이지 번호"
  *     responses:
  *       200:
- *         description: 발행된 토픽 목록
- *       401:
- *         description: 인증 실패
+ *         description: 토픽 목록과 전체 개수
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 topics:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                 total:
+ *                   type: integer
  */
-router.get("/topics/published", async (req: Request, res: Response) => {
+router.get("/topics", async (req: Request, res: Response) => {
+  const limit = parseInt(req.query.limit as string, 10) || 20;
+  const page = parseInt(req.query.page as string, 10) || 1;
+  const offset = (page - 1) * limit;
+
   try {
-    const [rows] = await pool.query(
-      "SELECT id, display_name, published_at FROM tn_topic WHERE status = 'published' AND topic_type = 'CONTENT' ORDER BY published_at DESC"
-    );
-    res.json(rows);
+    const queries = [
+      pool.query("SELECT * FROM tn_topic WHERE topic_type = 'CONTENT' ORDER BY created_at DESC LIMIT ? OFFSET ?", [
+        limit,
+        offset,
+      ]),
+      pool.query("SELECT COUNT(*) as total FROM tn_topic WHERE topic_type = 'CONTENT'"),
+    ];
+
+    const results = await Promise.all(queries);
+    const topics = results[0][0];
+    const total = (results[1][0] as any)[0].total;
+
+    res.json({ topics, total });
   } catch (error) {
-    console.error("Error fetching published topics:", error);
-    res.status(500).json({ message: "Server error", detail: (error as Error).message });
+    console.error("Error fetching all topics:", error);
+    res.status(500).json({ message: "Server error" });
   }
 });
+
+
 
 /**
  * @swagger

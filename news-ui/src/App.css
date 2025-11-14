@@ -748,6 +748,7 @@ hr.divider {
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 a.topic-card-link {
@@ -1280,7 +1281,7 @@ a.topic-card-link {
   padding: 8px 18px;
   border: none;
   border-radius: 8px;
-  background: linear-gradient(135deg, #1f6feb, #144bcc);
+  background: linear-gradient(135deg, #0d6efd, #1b49dd);
   color: #fff;
   font-weight: 700;
   cursor: pointer;
@@ -1289,7 +1290,7 @@ a.topic-card-link {
 
 .newsround-chat-send:hover {
   transform: translateY(-1px);
-  box-shadow: 0 10px 22px rgba(31, 111, 235, 0.35);
+  box-shadow: 0 8px 20px rgba(13, 110, 253, 0.28);
 }
 
 .newsround-sidebar--right {
@@ -1449,14 +1450,16 @@ a.topic-card-link {
   border-bottom: 1px solid var(--border-color);
 }
 
-.profile-section, .inquiries-section {
+.profile-section,
+.inquiries-section {
   background-color: var(--bg-card);
   border-radius: var(--border-radius);
   padding: 24px;
   box-shadow: var(--shadow-md);
 }
 
-.profile-section h2, .inquiries-section h2 {
+.profile-section h2,
+.inquiries-section h2 {
   margin: 0 0 16px 0;
   font-size: 1.4rem;
 }
@@ -1506,7 +1509,8 @@ a.topic-card-link {
   white-space: nowrap;
 }
 
-.status-submitted, .status-in_progress {
+.status-submitted,
+.status-in_progress {
   background-color: #e5e7eb; /* Gray */
   color: #4b5563;
 }
@@ -1571,4 +1575,595 @@ a.topic-card-link {
 .no-reply {
   color: var(--text-secondary);
   font-style: italic;
+}
+
+/* =========================================
+   11. Admin Dashboard (New)
+   ========================================= */
+
+.admin-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.admin-page-header h1 {
+  font-size: 2rem;
+  margin: 0;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+
+.dashboard-column {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.dashboard-card {
+  background-color: var(--bg-card);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dashboard-card-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.view-all-link {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--primary-blue);
+  text-decoration: none;
+}
+
+.dashboard-card-body {
+  padding: 20px;
+}
+
+.activity-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.activity-list li a {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color var(--transition-speed) ease;
+}
+
+.activity-list li a:hover {
+  background-color: #f4f7fa;
+}
+
+.activity-title {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activity-meta {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.empty-list-text {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  text-align: center;
+  padding: 16px 0;
+}
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.quick-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  border-radius: var(--border-radius);
+  background-color: #f4f7fa;
+  border: 1px solid var(--border-color);
+  font-weight: 600;
+  text-align: center;
+  transition: all var(--transition-speed) ease;
+}
+
+.quick-action-btn:hover {
+  background-color: #e9eef3;
+  border-color: #d1d9e3;
+  color: var(--primary-blue);
+}
+
+.chart-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  border: 2px dashed var(--border-color);
+  border-radius: var(--border-radius);
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.chart-placeholder span {
+  font-size: 0.85rem;
+  margin-top: 8px;
+}
+
+/* =========================================
+   12. Admin Table Styles (New)
+   ========================================= */
+
+.admin-table-container {
+  background-color: var(--bg-card);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+  overflow-x: auto; /* For responsive tables */
+  margin-bottom: 24px;
+}
+
+.admin-table-container table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.admin-table-container th,
+.admin-table-container td {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: middle;
+}
+
+.admin-table-container th {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  background-color: #f9fafb;
+}
+
+.admin-table-container tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-table-container tbody tr:hover {
+  background-color: #f9fafb;
+}
+
+.admin-table-container td {
+  font-size: 0.9rem;
+}
+
+.admin-table-container td[colspan] {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-secondary);
+}
+
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  display: inline-block;
+}
+
+.status-badge.status-pending,
+.status-badge.status-submitted {
+  background-color: #fef3c7; /* Yellow */
+  color: #92400e;
+}
+
+.status-badge.status-replied,
+.status-badge.status-resolved {
+  background-color: #d1fae5; /* Green */
+  color: #065f46;
+}
+
+.status-badge.status-published {
+  background-color: #dbeafe; /* Blue */
+  color: #1e40af;
+}
+
+.status-badge.status-suggested {
+  background-color: #e5e7eb; /* Gray */
+  color: #4b5563;
+}
+
+.table-action-btn {
+  padding: 6px 12px;
+  border-radius: var(--border-radius);
+  background-color: var(--primary-gray);
+  color: white;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-decoration: none;
+  transition: background-color var(--transition-speed) ease;
+}
+
+.table-action-btn:hover {
+  background-color: #4a5568;
+}
+
+/* =========================================
+   13. Admin Inquiry Detail Page (New)
+   ========================================= */
+
+.inquiry-detail-page .inquiry-detail-layout {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+
+.inquiry-detail-page .inquiry-card,
+.inquiry-detail-page .reply-card {
+  background-color: var(--bg-card);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.inquiry-detail-page .inquiry-card-header,
+.inquiry-detail-page .reply-card-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.inquiry-detail-page .inquiry-card-header h3,
+.inquiry-detail-page .reply-card-header h4 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.inquiry-detail-page .inquiry-card-meta {
+  padding: 16px 20px;
+  background-color: #f9fafb;
+  border-bottom: 1px solid var(--border-color);
+  display: grid;
+  gap: 12px;
+}
+
+.inquiry-detail-page .meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.inquiry-detail-page .meta-item span {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.inquiry-detail-page .meta-item strong {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.inquiry-detail-page .inquiry-card-body {
+  padding: 20px;
+  font-size: 1rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  flex-grow: 1;
+}
+
+.inquiry-detail-page .inquiry-card-footer,
+.inquiry-detail-page .reply-card-footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-color);
+  background-color: #f9fafb;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.inquiry-detail-page .attachment-btn {
+  background-color: #eef2f7;
+  border: 1px solid #d1d9e3;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-speed) ease;
+}
+
+.inquiry-detail-page .attachment-btn:hover {
+  background-color: #e1e7ee;
+  border-color: #c1c9d3;
+}
+
+.inquiry-detail-page .reply-card-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.inquiry-detail-page .reply-card-body form {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.inquiry-detail-page .reply-card-body textarea {
+  flex-grow: 1;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  padding: 12px;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+.inquiry-detail-page .reply-card-body textarea.readonly {
+  background-color: #f9fafb;
+  color: var(--text-secondary);
+}
+
+.inquiry-detail-page .reply-form-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.inquiry-detail-page .submit-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  background-color: var(--primary-blue);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--transition-speed) ease;
+}
+
+.inquiry-detail-page .submit-btn:hover {
+  background-color: #0056b3;
+}
+
+.inquiry-detail-page .submit-btn:disabled {
+  background-color: var(--primary-gray);
+  cursor: not-allowed;
+}
+
+.inquiry-detail-page .error-message {
+  color: var(--primary-red);
+  font-size: 0.9rem;
+  margin-top: 10px;
+}
+
+.inquiry-detail-page .success-message {
+  color: var(--primary-green);
+  font-size: 0.9rem;
+  margin-top: 10px;
+}
+/* =========================================
+   14. Admin System Log Page (New)
+   ========================================= */
+
+.admin-system-log-page .log-viewer-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.admin-system-log-page .log-selector {
+  position: sticky;
+  top: 24px;
+  background-color: var(--bg-card);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+  padding: 16px;
+}
+
+.admin-system-log-page .log-selector h4 {
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 8px;
+}
+
+.admin-system-log-page .log-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.admin-system-log-page .log-file-btn {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background-color: #fff;
+  text-align: left;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-speed) ease;
+}
+
+.admin-system-log-page .log-file-btn:hover {
+  background-color: #f9fafb;
+  border-color: #d1d9e3;
+}
+
+.admin-system-log-page .log-file-btn.active {
+  background-color: var(--primary-blue);
+  color: white;
+  border-color: var(--primary-blue);
+  font-weight: 600;
+}
+
+.admin-system-log-page .log-content-container {
+  background-color: var(--bg-card);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+  padding: 20px;
+}
+
+.admin-system-log-page .log-content-container h3 {
+  margin: 0 0 16px 0;
+}
+
+.admin-system-log-page .log-content-viewer {
+  background-color: #0f172a; /* Dark blue background */
+  color: #e2e8f0; /* Light gray text */
+  padding: 16px;
+  border-radius: 8px;
+  height: 70vh;
+  overflow: auto;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+  font-size: 0.85rem;
+}
+
+.admin-system-log-page .log-content-viewer pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.admin-system-log-page .log-error {
+  color: #fca5a5; /* Light red for errors */
+}
+
+@media (max-width: 900px) {
+  .admin-system-log-page .log-viewer-layout {
+    grid-template-columns: 1fr;
+  }
+  .admin-system-log-page .log-selector {
+    position: static;
+  }
+}
+/* =========================================
+   15. Admin User Detail Page (New)
+   ========================================= */
+
+.user-detail-card {
+  background-color: var(--bg-card);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-md);
+  max-width: 700px;
+  margin: 32px auto 0 auto; /* Add top margin */
+  overflow: hidden; /* Ensures child border-radius is clipped */
+}
+
+.user-detail-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #fdfdfe;
+}
+
+.user-detail-header h3 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.user-detail-header span {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.user-detail-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px; /* Increased gap */
+}
+
+.detail-item {
+  display: grid;
+  grid-template-columns: 140px 1fr; /* Adjusted column width */
+  align-items: center;
+  gap: 16px;
+}
+
+.detail-item .item-label {
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.detail-item .item-value {
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.detail-item.editable {
+  align-items: center;
+}
+
+.detail-item .item-input {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  font-size: 1rem;
+  max-width: 220px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.detail-item .item-input:focus {
+  outline: none;
+  border-color: var(--primary-blue);
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2);
+}
+
+.user-detail-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border-color);
+  background-color: #f9fafb;
+  display: flex;
+  justify-content: flex-end;
 }

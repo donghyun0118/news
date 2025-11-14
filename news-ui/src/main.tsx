@@ -9,6 +9,10 @@ import { AdminAuthProvider } from "./context/AdminAuthContext";
 import { UserAuthProvider } from "./context/UserAuthContext";
 import AdminLoginPage from "./pages/Admin/AdminLoginPage";
 import AdminPage from "./pages/Admin/AdminPage";
+import AdminTopicsListPage from "./pages/Admin/AdminTopicsListPage";
+import AdminUsersListPage from "./pages/Admin/AdminUsersListPage";
+import AdminUserDetailPage from "./pages/Admin/AdminUserDetailPage";
+import AdminSystemLogPage from "./pages/Admin/AdminSystemLogPage";
 import AdminTopicCreatePage from "./pages/Admin/AdminTopicCreatePage";
 import AdminTopicDetailPage from "./pages/Admin/AdminTopicDetailPage";
 import AdminTopicEditPage from "./pages/Admin/AdminTopicEditPage";
@@ -18,6 +22,7 @@ import SignupPage from "./pages/Public/SignupPage";
 import LoginPage from "./pages/Public/LoginPage";
 import MyPage from "./pages/Public/MyPage";
 import AdminInquiryDetailPage from "./pages/Admin/AdminInquiryDetailPage";
+import AdminInquiriesListPage from "./pages/Admin/AdminInquiriesListPage";
 
 const router = createBrowserRouter([
   { path: "/", element: <HomePage /> },
@@ -26,6 +31,14 @@ const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
   { path: "/mypage", element: <MyPage /> },
   { path: "/admin/login", element: <AdminLoginPage /> },
+  {
+    path: "/admin/inquiries",
+    element: (
+      <RequireAdminAuth>
+        <AdminInquiriesListPage />
+      </RequireAdminAuth>
+    ),
+  },
   {
     path: "/admin/inquiries/:inquiryId",
     element: (
@@ -39,6 +52,38 @@ const router = createBrowserRouter([
     element: (
       <RequireAdminAuth>
         <AdminPage />
+      </RequireAdminAuth>
+    ),
+  },
+  {
+    path: "/admin/topics",
+    element: (
+      <RequireAdminAuth>
+        <AdminTopicsListPage />
+      </RequireAdminAuth>
+    ),
+  },
+  {
+    path: "/admin/users",
+    element: (
+      <RequireAdminAuth>
+        <AdminUsersListPage />
+      </RequireAdminAuth>
+    ),
+  },
+  {
+    path: "/admin/users/:userId",
+    element: (
+      <RequireAdminAuth>
+        <AdminUserDetailPage />
+      </RequireAdminAuth>
+    ),
+  },
+  {
+    path: "/admin/system",
+    element: (
+      <RequireAdminAuth>
+        <AdminSystemLogPage />
       </RequireAdminAuth>
     ),
   },
