@@ -50,7 +50,7 @@ const getAbsoluteAvatarUrl = (avatarUrl: string | null, req: Request): string | 
  *                       content: { type: string }
  *                       created_at: { type: string, format: date-time }
  *                       parent_comment_id: { type: integer, nullable: true }
- *                       status: { type: string, enum: [ACTIVE, DELETED_BY_USER, DELETED_BY_ADMIN] }
+ *status: { type: string, enum: [ACTIVE, HIDDEN, DELETED_BY_USER, DELETED_BY_ADMIN] }
  *                       user_id: { type: integer }
  *                       nickname: { type: string }
  *                       avatar_url: { type: string, nullable: true }
@@ -191,7 +191,7 @@ router.get("/articles/:articleId/comments", optionalAuthenticateUser, async (req
  *                     content: { type: string }
  *                     created_at: { type: string, format: date-time }
  *                     parent_comment_id: { type: integer, nullable: true }
- *                     status: { type: string, enum: [ACTIVE, DELETED_BY_USER, DELETED_BY_ADMIN] }
+ *                     status: { type: string, enum: [ACTIVE, HIDDEN, DELETED_BY_USER, DELETED_BY_ADMIN] }
  *                     user_id: { type: integer }
  *                     nickname: { type: string }
  *                     avatar_url: { type: string, nullable: true }
@@ -568,7 +568,7 @@ router.post("/comments/:commentId/report", authenticateUser, async (req: Authent
       
       // Hide the comment
       await connection.query(
-        "UPDATE tn_article_comment SET status = 'DELETED_BY_ADMIN', content = '신고 누적으로 숨김 처리된 댓글입니다.' WHERE id = ?",
+        "UPDATE tn_article_comment SET status = 'HIDDEN', content = '신고 누적으로 숨김 처리된 댓글입니다.' WHERE id = ?",
         [commentId]
       );
       

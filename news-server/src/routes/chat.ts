@@ -166,7 +166,7 @@ router.post("/", authenticateUser, async (req: AuthenticatedRequest, res: Respon
  *     tags:
  *       - Chat
  *     summary: 내 채팅 메시지 삭제
- *     description: "사용자가 자신이 작성한 메시지를 삭제합니다. (상태를 DELETED로 변경)"
+ *     description: "사용자가 자신이 작성한 메시지를 삭제합니다. (상태를 DELETED_BY_USER로 변경)"
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -199,7 +199,7 @@ router.delete("/:messageId", authenticateUser, async (req: AuthenticatedRequest,
     }
 
     await pool.query(
-      "UPDATE tn_chat SET status = 'DELETED' WHERE id = ?",
+      "UPDATE tn_chat SET status = 'DELETED_BY_USER' WHERE id = ?",
       [messageId]
     );
 
