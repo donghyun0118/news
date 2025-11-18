@@ -1,6 +1,6 @@
 import express, { Request, Response } from "express";
 import pool from "../config/db";
-import { authenticateUser, AuthenticatedRequest } from "../middleware/userAuth";
+import { authenticateUser, AuthenticatedRequest, optionalAuthenticateUser } from "../middleware/userAuth";
 
 const router = express.Router();
 
@@ -18,7 +18,7 @@ const getAbsoluteAvatarUrl = (avatarUrl: string | null, req: Request): string | 
  *   get:
  *     tags: [Comments]
  *     summary: 기사에 대한 댓글 목록 조회
- *     description: "특정 기사에 대한 댓글 목록을 정렬 옵션과 함께 조회합니다. 대댓글은 부모 댓글 내에 중첩된 형태로 반환되며, 삭제된 댓글은 합계에서 제외됩니다."
+ *     description: "특정 기사에 대한 댓글 목록을 정렬 옵션과 함께 조회합니다. 대댓글은 부모 댓글 내에 중첩된 형태로 반환되며, 삭제된 댓글은 합계에서 제외됩니다. 로그인한 경우, 현재 사용자의 좋아요/싫어요 반응도 함께 반환됩니다."
  *     parameters:
  *       - in: path
  *         name: articleId
@@ -54,6 +54,9 @@ const getAbsoluteAvatarUrl = (avatarUrl: string | null, req: Request): string | 
  *                       user_id: { type: integer }
  *                       nickname: { type: string }
  *                       avatar_url: { type: string, nullable: true }
+ *                       like_count: { type: integer }
+ *                       dislike_count: { type: integer }
+ *                       currentUserReaction: { type: string, enum: [LIKE, DISLIKE], nullable: true }
  *                       replies:
  *                         type: array
  *                         items:
@@ -62,9 +65,10 @@ const getAbsoluteAvatarUrl = (avatarUrl: string | null, req: Request): string | 
  *                   type: integer
  *                   description: "삭제되지 않은 댓글 및 대댓글의 총 개수"
  */
-router.get("/articles/:articleId/comments", async (req: Request, res: Response) => {
+router.get("/articles/:articleId/comments", optionalAuthenticateUser, async (req: AuthenticatedRequest, res: Response) => {
   const { articleId } = req.params;
-  const { sort = 'newest' } = req.query; // 'newest', 'oldest'
+  const { sort = 'newest' } = req.query;
+  const currentUserId = req.user?.userId;
 
   let orderByClause = 'ORDER BY c.created_at DESC';
   if (sort === 'oldest') {
@@ -75,13 +79,16 @@ router.get("/articles/:articleId/comments", async (req: Request, res: Response) 
     const query = `
       SELECT 
         c.id, c.content, c.created_at, c.parent_comment_id, c.status,
-        u.id as user_id, u.nickname, u.profile_image_url
+        c.like_count, c.dislike_count,
+        u.id as user_id, u.nickname, u.profile_image_url,
+        r.reaction_type as currentUserReaction
       FROM tn_article_comment c
       JOIN tn_user u ON c.user_id = u.id
+      LEFT JOIN tn_article_comment_reaction r ON c.id = r.comment_id AND r.user_id = ?
       WHERE c.article_id = ?
       ${orderByClause}
     `;
-    const [commentsRows]: any = await pool.query(query, [articleId]);
+    const [commentsRows]: any = await pool.query(query, [currentUserId, articleId]);
 
     const [totalCountRows]: any = await pool.query(
       "SELECT COUNT(*) as total FROM tn_article_comment WHERE article_id = ? AND status = 'ACTIVE'",
@@ -165,11 +172,9 @@ router.get("/articles/:articleId/comments", async (req: Request, res: Response) 
  *             properties:
  *               content:
  *                 type: string
- *                 description: "댓글 내용"
  *               parent_comment_id:
  *                 type: integer
  *                 nullable: true
- *                 description: "대댓글인 경우 부모 댓글의 ID (항상 최상위 댓글 ID)"
  *     responses:
  *       201:
  *         description: "댓글 작성 성공"
@@ -190,12 +195,8 @@ router.get("/articles/:articleId/comments", async (req: Request, res: Response) 
  *                     user_id: { type: integer }
  *                     nickname: { type: string }
  *                     avatar_url: { type: string, nullable: true }
- *       400:
- *         description: "유효하지 않은 요청 (내용 누락 등)"
- *       401:
- *         description: "인증 실패"
- *       500:
- *         description: "서버 오류"
+ *                     like_count: { type: integer }
+ *                     dislike_count: { type: integer }
  */
 router.post("/articles/:articleId/comments", authenticateUser, async (req: AuthenticatedRequest, res: Response) => {
   const { articleId } = req.params;
@@ -226,6 +227,7 @@ router.post("/articles/:articleId/comments", authenticateUser, async (req: Authe
       `
       SELECT 
         c.id, c.content, c.created_at, c.parent_comment_id, c.status,
+        c.like_count, c.dislike_count,
         u.id as user_id, u.nickname, u.profile_image_url
       FROM tn_article_comment c
       JOIN tn_user u ON c.user_id = u.id
@@ -316,6 +318,7 @@ router.patch("/comments/:commentId", authenticateUser, async (req: Authenticated
  *         required: true
  *         schema:
  *           type: integer
+ *         description: "삭제할 댓글의 ID"
  *     responses:
  *       200:
  *         description: "댓글 삭제 성공"
@@ -358,6 +361,232 @@ router.delete("/comments/:commentId", authenticateUser, async (req: Authenticate
     await connection.rollback();
     console.error("Error deleting comment:", error);
     res.status(500).json({ message: "댓글 삭제 중 오류가 발생했습니다." });
+  } finally {
+    connection.release();
+  }
+});
+
+/**
+ * @swagger
+ * /api/comments/{commentId}/react:
+ *   post:
+ *     tags: [Comments]
+ *     summary: 댓글에 대한 반응(좋아요/싫어요) 추가/변경/삭제
+ *     description: "특정 댓글에 대해 좋아요 또는 싫어요를 누릅니다. 이미 같은 반응을 누른 경우 취소되고, 다른 반응을 누른 경우 변경됩니다."
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: "반응할 댓글의 ID"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [reaction]
+ *             properties:
+ *               reaction:
+ *                 type: string
+ *                 enum: [LIKE, DISLIKE]
+ *                 description: "사용자의 반응"
+ *     responses:
+ *       200:
+ *         description: "반응이 성공적으로 처리되었습니다."
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 like_count: { type: integer }
+ *                 dislike_count: { type: integer }
+ *                 currentUserReaction: { type: string, enum: [LIKE, DISLIKE], nullable: true }
+ */
+router.post("/comments/:commentId/react", authenticateUser, async (req: AuthenticatedRequest, res: Response) => {
+  const { commentId } = req.params;
+  const userId = req.user!.userId;
+  const { reaction: newReaction } = req.body;
+
+  if (newReaction !== 'LIKE' && newReaction !== 'DISLIKE') {
+    return res.status(400).json({ message: "Invalid reaction type." });
+  }
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [existingReactions]: any = await connection.query(
+      "SELECT reaction_type FROM tn_article_comment_reaction WHERE user_id = ? AND comment_id = ?",
+      [userId, commentId]
+    );
+
+    const existingReaction = existingReactions.length > 0 ? existingReactions[0].reaction_type : null;
+
+    let likeIncrement = 0;
+    let dislikeIncrement = 0;
+    let finalUserReaction: 'LIKE' | 'DISLIKE' | null = newReaction;
+
+    if (!existingReaction) {
+      // New reaction
+      await connection.query(
+        "INSERT INTO tn_article_comment_reaction (user_id, comment_id, reaction_type) VALUES (?, ?, ?)",
+        [userId, commentId, newReaction]
+      );
+      if (newReaction === 'LIKE') likeIncrement = 1;
+      else dislikeIncrement = 1;
+    } else if (existingReaction === newReaction) {
+      // Undo reaction
+      await connection.query(
+        "DELETE FROM tn_article_comment_reaction WHERE user_id = ? AND comment_id = ?",
+        [userId, commentId]
+      );
+      if (newReaction === 'LIKE') likeIncrement = -1;
+      else dislikeIncrement = -1;
+      finalUserReaction = null;
+    } else {
+      // Change reaction
+      await connection.query(
+        "UPDATE tn_article_comment_reaction SET reaction_type = ? WHERE user_id = ? AND comment_id = ?",
+        [newReaction, userId, commentId]
+      );
+      if (newReaction === 'LIKE') {
+        likeIncrement = 1;
+        dislikeIncrement = -1;
+      } else {
+        likeIncrement = -1;
+        dislikeIncrement = 1;
+      }
+    }
+
+    // Update counts on the comment table
+    if (likeIncrement !== 0 || dislikeIncrement !== 0) {
+      await connection.query(
+        "UPDATE tn_article_comment SET like_count = like_count + ?, dislike_count = dislike_count + ? WHERE id = ?",
+        [likeIncrement, dislikeIncrement, commentId]
+      );
+    }
+
+    // Get the final counts
+    const [finalCounts]: any = await connection.query(
+      "SELECT like_count, dislike_count FROM tn_article_comment WHERE id = ?",
+      [commentId]
+    );
+
+    await connection.commit();
+
+    res.status(200).json({
+      ...finalCounts[0],
+      currentUserReaction: finalUserReaction,
+    });
+
+  } catch (error) {
+    await connection.rollback();
+    console.error("Error processing comment reaction:", error);
+    res.status(500).json({ message: "댓글 반응 처리 중 오류가 발생했습니다." });
+  } finally {
+    connection.release();
+  }
+});
+
+/**
+ * @swagger
+ * /api/comments/{commentId}/report:
+ *   post:
+ *     tags: [Comments]
+ *     summary: 댓글 신고
+ *     description: "특정 댓글을 신고합니다. 한 사용자는 같은 댓글을 한 번만 신고할 수 있습니다."
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: commentId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: "신고할 댓글의 ID"
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 description: "신고 사유 (선택 사항)"
+ *     responses:
+ *       200:
+ *         description: "신고가 성공적으로 접수되었습니다."
+ *       409:
+ *         description: "이미 신고한 댓글입니다."
+ */
+router.post("/comments/:commentId/report", authenticateUser, async (req: AuthenticatedRequest, res: Response) => {
+  const { commentId } = req.params;
+  const userId = req.user!.userId;
+  const { reason } = req.body;
+  const REPORT_THRESHOLD = 5;
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // Check if the user has already reported this comment
+    const [existingReports]: any = await connection.query(
+      "SELECT id FROM tn_article_comment_report_log WHERE user_id = ? AND comment_id = ?",
+      [userId, commentId]
+    );
+
+    if (existingReports.length > 0) {
+      await connection.rollback();
+      return res.status(409).json({ message: "이미 신고한 댓글입니다." });
+    }
+
+    // Log the report
+    await connection.query(
+      "INSERT INTO tn_article_comment_report_log (user_id, comment_id, reason) VALUES (?, ?, ?)",
+      [userId, commentId, reason || null]
+    );
+
+    // Increment the report count on the comment table
+    await connection.query(
+      "UPDATE tn_article_comment SET report_count = report_count + 1 WHERE id = ?",
+      [commentId]
+    );
+
+    // Check if the report count reached the threshold
+    const [comments]: any = await connection.query(
+      "SELECT user_id, report_count FROM tn_article_comment WHERE id = ?",
+      [commentId]
+    );
+
+    if (comments.length > 0 && comments[0].report_count >= REPORT_THRESHOLD) {
+      const commentAuthorId = comments[0].user_id;
+      
+      // Hide the comment
+      await connection.query(
+        "UPDATE tn_article_comment SET status = 'DELETED_BY_ADMIN', content = '신고 누적으로 숨김 처리된 댓글입니다.' WHERE id = ?",
+        [commentId]
+      );
+      
+      // Warn the author
+      await connection.query(
+        "UPDATE tn_user SET warning_count = warning_count + 1 WHERE id = ?",
+        [commentAuthorId]
+      );
+    }
+
+    await connection.commit();
+
+    res.status(200).json({ message: "신고가 성공적으로 접수되었습니다." });
+
+  } catch (error) {
+    await connection.rollback();
+    console.error("Error processing comment report:", error);
+    res.status(500).json({ message: "댓글 신고 처리 중 오류가 발생했습니다." });
   } finally {
     connection.release();
   }

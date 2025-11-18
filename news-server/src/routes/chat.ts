@@ -234,13 +234,14 @@ router.delete("/:messageId", authenticateUser, async (req: AuthenticatedRequest,
 router.post("/:messageId/report", authenticateUser, async (req: AuthenticatedRequest, res: Response) => {
   const { messageId } = req.params;
   const userId = req.user?.userId;
+  const { reason } = req.body; // reason 추가
   const REPORT_THRESHOLD = 5;
 
   try {
     // 1. Try to log the report first.
     const [logResult]: any = await pool.query(
-      "INSERT IGNORE INTO tn_chat_report_log (chat_id, user_id) VALUES (?, ?)",
-      [messageId, userId]
+      "INSERT IGNORE INTO tn_chat_report_log (chat_id, user_id, reason) VALUES (?, ?, ?)",
+      [messageId, userId, reason || null]
     );
 
     // 2. If affectedRows is 0, it was a duplicate. Stop here.
