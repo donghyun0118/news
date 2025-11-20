@@ -411,6 +411,8 @@ router.post("/comments/:commentId/react", authenticateUser, async (req: Authenti
   const userId = req.user!.userId;
   const { reaction: newReaction } = req.body;
 
+  console.log(`[React-Debug] Received request for commentId: ${commentId}. Body:`, req.body);
+
   if (newReaction !== 'LIKE' && newReaction !== 'DISLIKE') {
     return res.status(400).json({ message: "Invalid reaction type." });
   }
