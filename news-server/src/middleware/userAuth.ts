@@ -46,7 +46,11 @@ export const optionalAuthenticateUser = (req: AuthenticatedRequest, res: Respons
     console.log(`[Auth-Debug] Token verified successfully for userId: ${decoded.userId}`);
     next();
   } catch (error) {
-    console.error(`[Auth-Debug] Token verification failed! Error: ${error.message}`);
+    if (error instanceof Error) {
+      console.error(`[Auth-Debug] Token verification failed! Error: ${error.message}`);
+    } else {
+      console.error(`[Auth-Debug] Token verification failed with an unknown error:`, error);
+    }
     // Invalid token, just proceed without user info
     next();
   }
