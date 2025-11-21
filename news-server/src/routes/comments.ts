@@ -111,6 +111,16 @@ router.get(
     `;
       const [commentsRows]: any = await pool.query(query, [currentUserId, articleId]);
 
+      try {
+        const logDir = path.join(__dirname, "..", "..", "..", "logs");
+        const logMessage = `[${new Date().toISOString()}] Query Result - Count: ${
+          commentsRows.length
+        }, First Reaction: ${commentsRows.length > 0 ? commentsRows[0].currentUserReaction : "N/A"}\n`;
+        fs.appendFileSync(path.join(logDir, "debug.log"), logMessage);
+      } catch (e) {
+        console.error("Failed to write debug log", e);
+      }
+
       const [totalCountRows]: any = await pool.query(
         "SELECT COUNT(*) as total FROM tn_article_comment WHERE article_id = ? AND status = 'ACTIVE'",
         [articleId]
