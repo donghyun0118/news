@@ -1449,7 +1449,7 @@ router.post("/topics/:topicId/recollect", async (req: Request, res: Response) =>
     }
 
     const pythonCommand = process.env.PYTHON_EXECUTABLE_PATH || (os.platform() === "win32" ? "python" : "python3");
-    const pythonScriptPath = path.join(__dirname, "../../../news-data/topic_matcher_local.py");
+    const pythonScriptPath = path.join(__dirname, "../../../news-data/topic_matcher_db.py");
     const args = ["-u", pythonScriptPath, topicId];
 
     console.log(`Executing: ${pythonCommand} ${args.join(" ")}`);

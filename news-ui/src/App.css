@@ -185,13 +185,17 @@ hr.divider {
   margin: 0;
 }
 
-.topic-header-meta {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  margin-bottom: 8px;
+.publish-topic-btn {
+  background: linear-gradient(45deg, #38a169, #2f855a);
+  padding: 10px 20px;
+  border-radius: var(--border-radius);
+  color: white;
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-speed) ease;
+}
+.publish-topic-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
 }
 
 .topic-published-label {
@@ -1014,6 +1018,60 @@ a.topic-card-link {
   transform: translateY(0);
   box-shadow: var(--shadow-sm);
   filter: brightness(0.95);
+}
+
+/* Filter Tabs (Modern Pill Style) */
+.filter-tabs {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.filter-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: 2px solid var(--border-color);
+  border-radius: 24px;
+  background-color: var(--bg-card);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.filter-tab:hover {
+  border-color: var(--primary-blue);
+  color: var(--text-primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.filter-tab.active {
+  background-color: var(--primary-blue);
+  color: white;
+  border-color: var(--primary-blue);
+  box-shadow: var(--shadow-md);
+}
+
+.filter-tab .tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 12px;
+  background-color: rgba(255, 255, 255, 0.2);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.filter-tab.active .tab-count {
+  background-color: rgba(255, 255, 255, 0.3);
 }
 
 /* =========================================

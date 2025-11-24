@@ -138,33 +138,6 @@ export default function AdminPage() {
         <div className="dashboard-column">
           <div className="dashboard-card">
             <div className="dashboard-card-header">
-              <h3>최근 등록된 문의</h3>
-              <Link to="/admin/inquiries" className="view-all-link">
-                전체 보기 →
-              </Link>
-            </div>
-            <div className="dashboard-card-body">
-              {recentInquiries.length > 0 ? (
-                <ul className="activity-list">
-                  {recentInquiries.map((item) => (
-                    <li key={item.id}>
-                      <Link to={`/admin/inquiries/${item.id}`}>
-                        <span className="activity-title">{item.subject}</span>
-                        <span className="activity-meta">
-                          {item.user_nickname} · {formatDateTime(item.created_at)}
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="empty-list-text">최근 문의가 없습니다.</p>
-              )}
-            </div>
-          </div>
-
-          <div className="dashboard-card">
-            <div className="dashboard-card-header">
               <h3>모든 토픽</h3>
               <Link to="/admin/topics" state={{ initialTab: "ALL" }} className="view-all-link">
                 전체 보기 →
@@ -186,6 +159,33 @@ export default function AdminPage() {
                 </ul>
               ) : (
                 <p className="empty-list-text">토픽이 없습니다.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="dashboard-card">
+            <div className="dashboard-card-header">
+              <h3>문의 내역</h3>
+              <Link to="/admin/inquiries" className="view-all-link">
+                전체 보기 →
+              </Link>
+            </div>
+            <div className="dashboard-card-body">
+              {recentInquiries.length > 0 ? (
+                <ul className="activity-list">
+                  {recentInquiries.map((item) => (
+                    <li key={item.id}>
+                      <Link to={`/admin/inquiries/${item.id}`}>
+                        <span className="activity-title">{item.subject}</span>
+                        <span className="activity-meta">
+                          {item.user_nickname} · {formatDateTime(item.created_at)}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="empty-list-text">최근 문의가 없습니다.</p>
               )}
             </div>
           </div>

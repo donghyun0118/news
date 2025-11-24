@@ -92,27 +92,27 @@ export default function AdminTopicsListPage() {
       </header>
 
       {/* Tab Navigation */}
-      <div className="tabs-container" style={{ marginBottom: "20px" }}>
+      <div className="filter-tabs" style={{ marginBottom: "24px", display: "flex", gap: "12px" }}>
         <button
           type="button"
-          className={`tab-button ${activeTab === "ALL" ? "active" : ""}`}
+          className={`filter-tab ${activeTab === "ALL" ? "active" : ""}`}
           onClick={() => handleTabChange("ALL")}
         >
-          전체 ({counts.ALL})
+          전체 <span className="tab-count">{counts.ALL}</span>
         </button>
         <button
           type="button"
-          className={`tab-button ${activeTab === "OPEN" ? "active" : ""}`}
+          className={`filter-tab ${activeTab === "OPEN" ? "active" : ""}`}
           onClick={() => handleTabChange("OPEN")}
         >
-          발행됨 ({counts.OPEN})
+          발행됨 <span className="tab-count">{counts.OPEN}</span>
         </button>
         <button
           type="button"
-          className={`tab-button ${activeTab === "PREPARING" ? "active" : ""}`}
+          className={`filter-tab ${activeTab === "PREPARING" ? "active" : ""}`}
           onClick={() => handleTabChange("PREPARING")}
         >
-          준비 중 ({counts.PREPARING})
+          준비 중 <span className="tab-count">{counts.PREPARING}</span>
         </button>
       </div>
 

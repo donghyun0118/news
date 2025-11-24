@@ -76,6 +76,7 @@ const AdminTopicDetailPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeSide, setActiveSide] = useState<"LEFT" | "CENTER" | "RIGHT">("LEFT");
+  const [sidebarTab, setSidebarTab] = useState<"OPEN" | "PREPARING">("OPEN");
 
   const fetchData = useCallback(async () => {
     if (!topicId) return;
@@ -226,7 +227,7 @@ const AdminTopicDetailPage = () => {
       if (!topicId || !topic) return;
       const currentKeywords = topic.embedding_keywords || "";
       const input = window.prompt(
-        "AI 추천 수집에 사용할 검색 키워드를 입력하세요.\n(비워두면 기존 값을 유지합니다.)",
+        "기사 재수집에 사용할 검색 키워드를 입력하세요.\n(비워두면 기존 값을 유지합니다.)",
         currentKeywords
       );
       if (input === null) return;
@@ -243,33 +244,10 @@ const AdminTopicDetailPage = () => {
         } else if (response.data?.searchKeywords) {
           setTopic((prev) => (prev ? { ...prev, embedding_keywords: response.data.searchKeywords } : prev));
         }
-        alert("AI 기반 기사 재수집을 요청했습니다. 잠시 후 새로고침하여 확인해주세요.");
+        alert("기사 재수집을 요청했습니다. 잠시 후 새로고침하여 확인해주세요.");
       } catch (error) {
         console.error(error);
         alert("기사 재수집 요청에 실패했습니다.");
-      }
-    },
-    handleCollectLatest: async () => {
-      if (!topicId || !topic) return;
-      const currentKeywords = topic.embedding_keywords || "";
-      const input = window.prompt("최신 기사 수집에 사용할 검색 키워드를 입력하세요.", currentKeywords);
-
-      if (input === null) return;
-
-      const payload: { embeddingKeywords?: string } = {};
-      const trimmed = input.trim();
-      if (trimmed) {
-        payload.embeddingKeywords = trimmed;
-      }
-
-      try {
-        const response = await axios.post(`/api/admin/topics/${topicId}/collect-latest`, payload);
-        const count = response.data.addedCount || 0;
-        alert(`${count}개의 최신 기사를 후보 목록에 추가했습니다.`);
-        fetchData(); // Refresh data
-      } catch (error) {
-        console.error(error);
-        alert("최신 기사 수집에 실패했습니다.");
       }
     },
     handleSaveOrder: async () => {
@@ -295,18 +273,6 @@ const AdminTopicDetailPage = () => {
       } catch (error) {
         console.error(error);
         alert("토픽 보관 처리에 실패했습니다.");
-      }
-    },
-    handleRejectTopic: async () => {
-      if (!topicId) return;
-      if (!window.confirm("이 토픽을 반려 처리할까요? 이 작업은 되돌릴 수 없습니다.")) return;
-      try {
-        await axios.patch(`/api/admin/topics/${topicId}/status`, { status: "REJECTED" });
-        alert("토픽을 반려 처리했습니다.");
-        navigate("/admin/topics");
-      } catch (error) {
-        console.error("Error rejecting topic:", error);
-        alert("토픽 반려 처리에 실패했습니다.");
       }
     },
     handleUnpublishAllArticles: async () => {
@@ -456,18 +422,38 @@ const AdminTopicDetailPage = () => {
   return (
     <div className="admin-container curation-page-layout">
       <aside className="curation-sidebar">
-        <h2 className="sidebar-title">모든 토픽</h2>
+        <h2 className="sidebar-title">토픽 목록</h2>
+        <div className="filter-tabs" style={{ marginBottom: "16px", gap: "8px" }}>
+          <button
+            type="button"
+            className={`filter-tab ${sidebarTab === "OPEN" ? "active" : ""}`}
+            onClick={() => setSidebarTab("OPEN")}
+            style={{ fontSize: "0.8rem", padding: "6px 12px" }}
+          >
+            발행됨
+          </button>
+          <button
+            type="button"
+            className={`filter-tab ${sidebarTab === "PREPARING" ? "active" : ""}`}
+            onClick={() => setSidebarTab("PREPARING")}
+            style={{ fontSize: "0.8rem", padding: "6px 12px" }}
+          >
+            준비 중
+          </button>
+        </div>
         <ul className="sidebar-topic-list">
-          {topicList.map((item) => (
-            <li key={item.id}>
-              <Link
-                to={`/admin/topics/${item.id}`}
-                className={item.id === Number(topicId) ? "sidebar-topic-item active" : "sidebar-topic-item"}
-              >
-                {item.display_name || item.core_keyword}
-              </Link>
-            </li>
-          ))}
+          {topicList
+            .filter((item) => item.status === sidebarTab)
+            .map((item) => (
+              <li key={item.id}>
+                <Link
+                  to={`/admin/topics/${item.id}`}
+                  className={item.id === Number(topicId) ? "sidebar-topic-item active" : "sidebar-topic-item"}
+                >
+                  {item.display_name || item.core_keyword}
+                </Link>
+              </li>
+            ))}
         </ul>
       </aside>
 
@@ -563,19 +549,11 @@ const AdminTopicDetailPage = () => {
 
         <div className="topic-main-actions">
           <button type="button" onClick={handlers.handleRecollect} className="recollect-btn">
-            AI 추천 수집
-          </button>
-          <button type="button" onClick={handlers.handleCollectLatest} className="recollect-btn">
-            최신 기사 수집
+            기사 재수집
           </button>
           <button type="button" onClick={handlers.handleSaveOrder} className="save-btn">
             노출 순서 저장
           </button>
-          {topic.status === "PREPARING" && (
-            <button type="button" onClick={handlers.handleRejectTopic} className="delete-btn">
-              토픽 반려 처리
-            </button>
-          )}
           {topic.status === "OPEN" && (
             <button type="button" onClick={handlers.handleArchiveTopic} className="delete-btn">
               토픽 보관 처리
@@ -592,24 +570,24 @@ const AdminTopicDetailPage = () => {
         {errorMessage && <div className="detail-error inline">{errorMessage}</div>}
         {isLoading && <div className="detail-loading inline">기사 목록을 업데이트 중입니다…</div>}
 
-        <div className="tabs-container" style={{ marginBottom: "20px" }}>
+        <div className="filter-tabs" style={{ marginBottom: "24px" }}>
           <button
             type="button"
-            className={`tab-button ${activeSide === "LEFT" ? "active" : ""}`}
+            className={`filter-tab ${activeSide === "LEFT" ? "active" : ""}`}
             onClick={() => setActiveSide("LEFT")}
           >
             진보
           </button>
           <button
             type="button"
-            className={`tab-button ${activeSide === "CENTER" ? "active" : ""}`}
+            className={`filter-tab ${activeSide === "CENTER" ? "active" : ""}`}
             onClick={() => setActiveSide("CENTER")}
           >
             중도
           </button>
           <button
             type="button"
-            className={`tab-button ${activeSide === "RIGHT" ? "active" : ""}`}
+            className={`filter-tab ${activeSide === "RIGHT" ? "active" : ""}`}
             onClick={() => setActiveSide("RIGHT")}
           >
             보수
