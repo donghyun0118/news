@@ -9,15 +9,15 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import axios from "axios";
-import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import Modal from "../../components/Modal";
 import type { Article, Topic } from "../../types";
 
 const timeAgo = (dateString?: string): string => {
   if (!dateString) return "";
-  const source = new Date(dateString.includes('Z') ? dateString : dateString + 'Z');
+  const source = new Date(dateString.includes("Z") ? dateString : dateString + "Z");
   if (Number.isNaN(source.getTime())) return "";
 
   const diffSeconds = Math.floor((Date.now() - source.getTime()) / 1000);
@@ -46,9 +46,7 @@ const SortablePublishedArticleItem = ({ article, onUnpublish, onPreview }: Sorta
       <div {...attributes} {...listeners} style={{ cursor: "grab", flexGrow: 1 }} onClick={() => onPreview(article)}>
         <strong>{article.title}</strong>
         <br />
-        <small>
-          {article.source}
-        </small>
+        <small>{article.source}</small>
         <div className="article-meta-data">
           <span>유사도 {((article.similarity ?? 0) * 100).toFixed(1)}%</span>
           <span>{timeAgo(article.published_at)}</span>
@@ -68,6 +66,7 @@ const AdminTopicDetailPage = () => {
   const navigate = useNavigate();
 
   const [topic, setTopic] = useState<Topic | null>(null);
+  const [editData, setEditData] = useState<Partial<Topic>>({});
   const [allArticles, setAllArticles] = useState<Article[]>([]);
   const [previewArticle, setPreviewArticle] = useState<Article | null>(null);
   const [publishedLeft, setPublishedLeft] = useState<Article[]>([]);
@@ -83,14 +82,25 @@ const AdminTopicDetailPage = () => {
 
     try {
       const [topicRes, articlesRes] = await Promise.all([
-        axios.get(`/api/topics/${topicId}`),
+        axios.get(`/api/admin/topics/${topicId}`),
         axios.get(`/api/admin/topics/${topicId}/articles`),
       ]);
 
-      setTopic(topicRes.data.topic);
+      const fetchedTopic = topicRes.data.topic;
+      setTopic(fetchedTopic);
+      setEditData({
+        ...fetchedTopic,
+        vote_start_at: buildHtmlDateTime(fetchedTopic.vote_start_at),
+        vote_end_at: buildHtmlDateTime(fetchedTopic.vote_end_at),
+      });
+
       setAllArticles(articlesRes.data);
-      setPublishedLeft(articlesRes.data.filter((article: Article) => article.status === "published" && article.side === "LEFT"));
-      setPublishedRight(articlesRes.data.filter((article: Article) => article.status === "published" && article.side === "RIGHT"));
+      setPublishedLeft(
+        articlesRes.data.filter((article: Article) => article.status === "published" && article.side === "LEFT")
+      );
+      setPublishedRight(
+        articlesRes.data.filter((article: Article) => article.status === "published" && article.side === "RIGHT")
+      );
     } catch (error) {
       console.error("토픽 상세 데이터를 불러오지 못했습니다.", error);
       setErrorMessage("토픽 정보를 불러오는 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.");
@@ -103,7 +113,7 @@ const AdminTopicDetailPage = () => {
   useEffect(() => {
     const fetchTopicList = async () => {
       try {
-        const response = await axios.get(`/api/admin/topics/list-by-popularity`);
+        const response = await axios.get(`/api/admin/topics/sidebar`);
         setTopicList(response.data);
       } catch (error) {
         console.error("발행 토픽 목록을 불러오지 못했습니다.", error);
@@ -117,33 +127,63 @@ const AdminTopicDetailPage = () => {
     fetchData();
   }, [fetchData]);
 
-  const buildManualTimeDefault = (value?: string): string => {
-    if (!value) return "";
-    return value.replace("T", " ").slice(0, 16);
+  const buildHtmlDateTime = (isoString?: string | null) => {
+    if (!isoString) return "";
+    const date = new Date(isoString);
+    // Adjust for time zone offset
+    const tzoffset = new Date().getTimezoneOffset() * 60000; //offset in milliseconds
+    const localISOTime = new Date(date.getTime() - tzoffset).toISOString().slice(0, 16);
+    return localISOTime;
+  };
+
+  const handleEditDataChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setEditData({ ...editData, [e.target.name]: e.target.value });
   };
 
   const handlers = {
+    handlePublishTopic: async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!topicId || !editData) return;
+
+      const { display_name, embedding_keywords, summary, stance_left, stance_right, vote_start_at, vote_end_at } =
+        editData;
+
+      if (!display_name || !embedding_keywords || !vote_start_at || !vote_end_at) {
+        alert("토픽 주제, 키워드, 투표 시작/종료 시각은 필수입니다.");
+        return;
+      }
+
+      try {
+        await axios.patch(`/api/admin/topics/${topicId}/publish`, {
+          displayName: display_name,
+          embeddingKeywords: embedding_keywords,
+          summary: summary || "",
+          stanceLeft: stance_left || "",
+          stanceRight: stance_right || "",
+          voteStartAt: vote_start_at,
+          voteEndAt: vote_end_at,
+        });
+        alert("토픽이 성공적으로 발행되었습니다.");
+        fetchData(); // Refresh data to show updated status
+      } catch (error) {
+        console.error("Error publishing topic:", error);
+        alert("토픽 발행에 실패했습니다.");
+      }
+    },
+
     handlePublishArticle: async (article: Article) => {
       const payload: { publishedAt?: string } = {};
       if (article.source_domain === "hani.co.kr") {
-        const defaultValue = buildManualTimeDefault(article.published_at);
+        const defaultValue = buildHtmlDateTime(article.published_at);
         const manualInput = window.prompt("한겨레 기사 발행 시각을 입력하세요 (예: 2024-05-24 14:30)", defaultValue);
-        if (manualInput === null) {
-          return;
-        }
+        if (manualInput === null) return;
+
         const normalized = manualInput.trim();
         if (!normalized) {
           alert("발행 시각을 입력해야 합니다.");
           return;
         }
-        const sanitized = normalized.replace(/\./g, "-").replace(/\//g, "-").replace("T", " ");
-        const match = sanitized.match(/^(\d{4}-\d{2}-\d{2})\s(\d{2}):(\d{2})(?::(\d{2}))?$/);
-        if (!match) {
-          alert("발행 시각 형식이 올바르지 않습니다. 예: 2024-05-24 14:30");
-          return;
-        }
-        const seconds = match[4] ?? "00";
-        payload.publishedAt = `${match[1]} ${match[2]}:${match[3]}:${seconds}`;
+        payload.publishedAt = normalized;
       }
 
       try {
@@ -178,22 +218,24 @@ const AdminTopicDetailPage = () => {
     },
     handleRecollect: async () => {
       if (!topicId || !topic) return;
-      const currentKeywords = topic.search_keywords || "";
-      const input = window.prompt("AI 추천 수집에 사용할 검색 키워드를 입력하세요.\n(비워두면 기존 값을 유지합니다.)", currentKeywords);
-      if (input === null) {
-        return;
-      }
+      const currentKeywords = topic.embedding_keywords || "";
+      const input = window.prompt(
+        "AI 추천 수집에 사용할 검색 키워드를 입력하세요.\n(비워두면 기존 값을 유지합니다.)",
+        currentKeywords
+      );
+      if (input === null) return;
+
       const trimmed = input.trim();
-      const payload: { searchKeywords?: string } = {};
+      const payload: { embeddingKeywords?: string } = {};
       if (trimmed) {
-        payload.searchKeywords = trimmed;
+        payload.embeddingKeywords = trimmed;
       }
       try {
         const response = await axios.post(`/api/admin/topics/${topicId}/recollect`, payload);
-        if (payload.searchKeywords) {
-          setTopic((prev) => (prev ? { ...prev, search_keywords: payload.searchKeywords } : prev));
+        if (payload.embeddingKeywords) {
+          setTopic((prev) => (prev ? { ...prev, embedding_keywords: payload.embeddingKeywords } : prev));
         } else if (response.data?.searchKeywords) {
-          setTopic((prev) => (prev ? { ...prev, search_keywords: response.data.searchKeywords } : prev));
+          setTopic((prev) => (prev ? { ...prev, embedding_keywords: response.data.searchKeywords } : prev));
         }
         alert("AI 기반 기사 재수집을 요청했습니다. 잠시 후 새로고침하여 확인해주세요.");
       } catch (error) {
@@ -203,17 +245,15 @@ const AdminTopicDetailPage = () => {
     },
     handleCollectLatest: async () => {
       if (!topicId || !topic) return;
-      const currentKeywords = topic.search_keywords || "";
+      const currentKeywords = topic.embedding_keywords || "";
       const input = window.prompt("최신 기사 수집에 사용할 검색 키워드를 입력하세요.", currentKeywords);
-      
-      if (input === null) {
-        return; // User cancelled the prompt
-      }
 
-      const payload: { searchKeywords?: string } = {};
+      if (input === null) return;
+
+      const payload: { embeddingKeywords?: string } = {};
       const trimmed = input.trim();
       if (trimmed) {
-        payload.searchKeywords = trimmed;
+        payload.embeddingKeywords = trimmed;
       }
 
       try {
@@ -244,7 +284,7 @@ const AdminTopicDetailPage = () => {
       try {
         await axios.patch(`/api/admin/topics/${topicId}/archive`);
         alert("토픽을 보관 처리했습니다.");
-        navigate("/admin");
+        navigate("/admin/topics");
       } catch (error) {
         console.error(error);
         alert("토픽 보관 처리에 실패했습니다.");
@@ -287,7 +327,10 @@ const AdminTopicDetailPage = () => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    if (publishedLeft.some((article) => article.id === active.id) && publishedLeft.some((article) => article.id === over.id)) {
+    if (
+      publishedLeft.some((article) => article.id === active.id) &&
+      publishedLeft.some((article) => article.id === over.id)
+    ) {
       setPublishedLeft((items) =>
         arrayMove(
           items,
@@ -297,7 +340,10 @@ const AdminTopicDetailPage = () => {
       );
     }
 
-    if (publishedRight.some((article) => article.id === active.id) && publishedRight.some((article) => article.id === over.id)) {
+    if (
+      publishedRight.some((article) => article.id === active.id) &&
+      publishedRight.some((article) => article.id === over.id)
+    ) {
       setPublishedRight((items) =>
         arrayMove(
           items,
@@ -320,7 +366,8 @@ const AdminTopicDetailPage = () => {
   const StatusIndicator = ({ status }: { status: string | null | undefined }) => {
     if (status === "pending") return <div className="status-indicator pending">수집 대기 중</div>;
     if (status === "collecting") return <div className="status-indicator collecting">현재 기사 수집 중입니다</div>;
-    if (status === "completed") return <div className="status-indicator completed">최신 기사 수집이 완료되었습니다</div>;
+    if (status === "completed")
+      return <div className="status-indicator completed">최신 기사 수집이 완료되었습니다</div>;
     if (status === "failed") return <div className="status-indicator failed">기사 수집이 실패했습니다</div>;
     return null;
   };
@@ -390,6 +437,86 @@ const AdminTopicDetailPage = () => {
           <h1>기사 큐레이션: {topic.display_name || topic.core_keyword}</h1>
           <StatusIndicator status={topic.collection_status} />
         </div>
+
+        {topic.status === "PREPARING" && (
+          <section className="topic-publish-section">
+            <h2>토픽 발행 설정</h2>
+            <form onSubmit={handlers.handlePublishTopic} className="topic-edit-form">
+              <div className="edit-field">
+                <label htmlFor="display_name">토픽 주제</label>
+                <input
+                  type="text"
+                  name="display_name"
+                  value={editData.display_name || ""}
+                  onChange={handleEditDataChange}
+                  required
+                />
+              </div>
+              <div className="edit-field">
+                <label htmlFor="embedding_keywords">임베딩 키워드 (쉼표로 구분)</label>
+                <input
+                  type="text"
+                  name="embedding_keywords"
+                  value={editData.embedding_keywords || ""}
+                  onChange={handleEditDataChange}
+                  required
+                />
+              </div>
+              <div className="edit-field">
+                <label htmlFor="stance_left">LEFT 주장</label>
+                <input
+                  type="text"
+                  name="stance_left"
+                  value={editData.stance_left || ""}
+                  onChange={handleEditDataChange}
+                />
+              </div>
+              <div className="edit-field">
+                <label htmlFor="stance_right">RIGHT 주장</label>
+                <input
+                  type="text"
+                  name="stance_right"
+                  value={editData.stance_right || ""}
+                  onChange={handleEditDataChange}
+                />
+              </div>
+              <div className="edit-field">
+                <label htmlFor="summary">토픽 요약</label>
+                <textarea
+                  name="summary"
+                  value={editData.summary || ""}
+                  onChange={handleEditDataChange}
+                  rows={3}
+                ></textarea>
+              </div>
+              <div className="edit-field-row">
+                <div className="edit-field">
+                  <label htmlFor="vote_start_at">투표 시작 시각</label>
+                  <input
+                    type="datetime-local"
+                    name="vote_start_at"
+                    value={editData.vote_start_at || ""}
+                    onChange={handleEditDataChange}
+                    required
+                  />
+                </div>
+                <div className="edit-field">
+                  <label htmlFor="vote_end_at">투표 종료 시각</label>
+                  <input
+                    type="datetime-local"
+                    name="vote_end_at"
+                    value={editData.vote_end_at || ""}
+                    onChange={handleEditDataChange}
+                    required
+                  />
+                </div>
+              </div>
+              <button type="submit" className="publish-topic-btn">
+                토픽 발행하기
+              </button>
+            </form>
+          </section>
+        )}
 
         <div className="topic-main-actions">
           <button type="button" onClick={handlers.handleRecollect} className="recollect-btn">

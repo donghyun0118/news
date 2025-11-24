@@ -889,7 +889,7 @@ router.get("/topics/published", async (req: Request, res: Response) => {
 
   try {
     let sql =
-      "SELECT id, display_name, published_at FROM tn_topic WHERE status = 'OPEN' AND topic_type = 'VOTING' ORDER BY published_at DESC";
+      "SELECT id, display_name, published_at, status FROM tn_topic WHERE status IN ('OPEN', 'PREPARING') AND topic_type = 'VOTING' ORDER BY created_at DESC";
     const params = [];
 
     if (!isNaN(limit) && limit > 0) {
@@ -901,6 +901,35 @@ router.get("/topics/published", async (req: Request, res: Response) => {
     res.json(rows);
   } catch (error) {
     console.error("Error fetching published topics:", error);
+    res.status(500).json({ message: "Server error", detail: (error as Error).message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/topics/sidebar:
+ *   get:
+ *     tags: [Admin]
+ *     summary: 사이드바용 토픽 목록 조회
+ *     description: "관리자 페이지 사이드바를 위해, OPEN과 PREPARING 상태의 토픽을 최신순으로 반환합니다."
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: 사이드바용 토픽 목록
+ */
+router.get("/topics/sidebar", async (req: Request, res: Response) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT id, display_name, status, created_at 
+       FROM tn_topic 
+       WHERE status IN ('OPEN', 'PREPARING') AND topic_type = 'VOTING' 
+       ORDER BY created_at DESC 
+       LIMIT 50`
+    );
+    res.json(rows);
+  } catch (error) {
+    console.error("Error fetching sidebar topics:", error);
     res.status(500).json({ message: "Server error", detail: (error as Error).message });
   }
 });
@@ -1040,22 +1069,59 @@ router.patch("/topics/:topicId/reject", async (req: Request, res: Response) => {
 router.get("/topics", async (req: Request, res: Response) => {
   const limit = parseInt(req.query.limit as string, 10) || 20;
   const page = parseInt(req.query.page as string, 10) || 1;
+  const status = req.query.status as string; // 'OPEN', 'PREPARING', 'CLOSED'
   const offset = (page - 1) * limit;
 
+  let whereClause = "WHERE topic_type = 'VOTING'";
+  const params: (string | number)[] = [];
+  const countParams: (string | number)[] = [];
+
+  if (status && ["OPEN", "PREPARING", "CLOSED"].includes(status)) {
+    whereClause += " AND status = ?";
+    params.push(status);
+    countParams.push(status);
+  }
+
+  params.push(limit, offset);
+
   try {
-    const queries = [
-      pool.query("SELECT * FROM tn_topic WHERE topic_type = 'VOTING' ORDER BY created_at DESC LIMIT ? OFFSET ?", [
-        limit,
-        offset,
-      ]),
-      pool.query("SELECT COUNT(*) as total FROM tn_topic WHERE topic_type = 'VOTING'"),
-    ];
+    const topicQuery = pool.query(
+      `SELECT * FROM tn_topic ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+      params
+    );
+    const totalCountQuery = pool.query(`SELECT COUNT(*) as total FROM tn_topic ${whereClause}`, countParams);
 
-    const results = await Promise.all(queries);
-    const topics = results[0][0];
-    const total = (results[1][0] as any)[0].total;
+    const allCountQuery = pool.query("SELECT COUNT(*) as total FROM tn_topic WHERE topic_type = 'VOTING'");
+    const openCountQuery = pool.query(
+      "SELECT COUNT(*) as total FROM tn_topic WHERE topic_type = 'VOTING' AND status = 'OPEN'"
+    );
+    const preparingCountQuery = pool.query(
+      "SELECT COUNT(*) as total FROM tn_topic WHERE topic_type = 'VOTING' AND status = 'PREPARING'"
+    );
+    const closedCountQuery = pool.query(
+      "SELECT COUNT(*) as total FROM tn_topic WHERE topic_type = 'VOTING' AND status = 'CLOSED'"
+    );
 
-    res.json({ topics, total });
+    const [topicResults, totalCountResults, allCountResults, openCountResults, preparingCountResults, closedCountResults] =
+      await Promise.all([
+        topicQuery,
+        totalCountQuery,
+        allCountQuery,
+        openCountQuery,
+        preparingCountQuery,
+        closedCountQuery,
+      ]);
+
+    const topics = topicResults[0];
+    const total = (totalCountResults[0] as any)[0].total;
+    const counts = {
+      ALL: (allCountResults[0] as any)[0].total,
+      OPEN: (openCountResults[0] as any)[0].total,
+      PREPARING: (preparingCountResults[0] as any)[0].total,
+      CLOSED: (closedCountResults[0] as any)[0].total,
+    };
+
+    res.json({ topics, total, counts });
   } catch (error) {
     console.error("Error fetching all topics:", error);
     res.status(500).json({ message: "Server error" });
@@ -1092,7 +1158,7 @@ router.get("/topics", async (req: Request, res: Response) => {
  *         description: 토픽 생성 및 발행 성공
  */
 router.post("/topics", async (req: Request, res: Response) => {
-  const { displayName, searchKeywords, summary } = req.body;
+  const { displayName, searchKeywords, summary, stanceLeft, stanceRight } = req.body;
 
   if (!displayName || !searchKeywords) {
     return res.status(400).json({ message: "Display name and search keywords are required." });
@@ -1100,61 +1166,55 @@ router.post("/topics", async (req: Request, res: Response) => {
 
   try {
     const [result]: any = await pool.query(
-      "INSERT INTO tn_topic (display_name, embedding_keywords, summary, status, collection_status, published_at) VALUES (?, ?, ?, 'OPEN', 'pending', NOW())",
-      [displayName, searchKeywords, summary || ""]
+      "INSERT INTO tn_topic (display_name, embedding_keywords, summary, stance_left, stance_right, status, topic_type, collection_status) VALUES (?, ?, ?, ?, ?, 'PREPARING', 'VOTING', 'pending')",
+      [displayName, searchKeywords, summary || "", stanceLeft || "", stanceRight || ""]
     );
     const newTopicId = result.insertId;
 
-    const pythonScriptPath = path.join(__dirname, "../../../news-data/article_collector.py");
-    const pythonCommand = process.env.PYTHON_EXECUTABLE_PATH || (os.platform() === "win32" ? "python" : "python3");
-    const args = ["-u", pythonScriptPath, newTopicId.toString()];
-
-    console.log(`Executing: ${pythonCommand} ${args.join(" ")}`);
-    const pythonProcess = spawn(pythonCommand, args);
-
-    pythonProcess.stdout.on("data", (data) => {
-      console.log(`[article_collector.py stdout]: ${data.toString().trim()}`);
-    });
-    // --- Real-time notification ---
-    const io = req.app.get("io");
-    const userSocketMap = req.app.get("userSocketMap");
-
-    if (io && userSocketMap) {
-      try {
-        // 'NEW_TOPIC' 알림을 켜놓은 사용자 + 설정하지 않은 사용자 (기본값 true) 찾기
-        const [usersToNotify]: any = await pool.query(`
-          SELECT u.id FROM tn_user u
-          LEFT JOIN tn_user_notification_settings s 
-            ON u.id = s.user_id AND s.notification_type = 'NEW_TOPIC'
-          WHERE s.is_enabled IS NULL OR s.is_enabled = 1
-        `);
-
-        const notification = {
-          type: "NEW_TOPIC",
-          data: {
-            id: newTopicId,
-            displayName: displayName,
-            summary: summary || "",
-          },
-        };
-
-        for (const user of usersToNotify) {
-          const socketId = userSocketMap.get(user.id);
-          if (socketId) {
-            io.to(socketId).emit("new_notification", notification);
-            console.log(`Sent NEW_TOPIC notification to user ${user.id} on socket ${socketId}`);
-          }
-        }
-      } catch (notificationError) {
-        console.error("Failed to send new topic notifications:", notificationError);
-      }
-    }
-    // --------------------------
-
-    res.status(201).json({ message: `Topic ${newTopicId} has been created and published`, topicId: newTopicId });
+    res
+      .status(201)
+      .json({ message: `Topic ${newTopicId} has been created and is ready for curation.`, topicId: newTopicId });
   } catch (error) {
     console.error("Error creating new topic:", error);
     res.status(500).json({ message: "Server error", detail: (error as Error).message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/topics/{topicId}:
+ *   get:
+ *     tags: [Admin]
+ *     summary: 특정 토픽의 상세 정보 조회 (관리자용)
+ *     description: "관리자가 특정 토픽의 모든 정보를 상태와 관계없이 조회합니다."
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: topicId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: "토픽 상세 정보"
+ *       404:
+ *         description: "토픽을 찾을 수 없음"
+ */
+router.get("/topics/:topicId", async (req: Request, res: Response) => {
+  const { topicId } = req.params;
+
+  try {
+    const [rows]: any = await pool.query("SELECT * FROM tn_topic WHERE id = ?", [topicId]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Topic not found." });
+    }
+
+    res.json({ topic: rows[0] });
+  } catch (error) {
+    console.error(`Error fetching topic details for admin (ID ${topicId}):`, error);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
@@ -1737,31 +1797,6 @@ router.post("/topics/:topicId/delete-all-suggested", async (req: Request, res: R
 
 /**
  * @swagger
- * /api/admin/topics/list-by-popularity:
- *   get:
- *     tags: [Admin]
- *     summary: 발행됨 상태의 모든 토픽 목록을 인기순으로 조회
- *     description: "관리자 페이지 사이드바를 위해, 모든 발행된 토픽을 popularity_score가 높은 순으로 정렬하여 반환합니다."
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: 인기순으로 정렬된 토픽 목록
- */
-router.get("/topics/list-by-popularity", async (req: Request, res: Response) => {
-  try {
-    const [rows] = await pool.query(
-      "SELECT id, display_name, published_at FROM tn_topic WHERE status = 'OPEN' AND topic_type = 'VOTING' ORDER BY published_at DESC"
-    );
-    res.json(rows);
-  } catch (error) {
-    console.error("Error fetching topics by popularity:", error);
-    res.status(500).json({ message: "Server error", detail: (error as Error).message });
-  }
-});
-
-/**
- * @swagger
  * /api/admin/topics/{topicId}/collect-latest:
  *   post:
  *     tags: [Admin]
@@ -1932,4 +1967,5 @@ router.post("/topics/:topicId/collect-latest", async (req: Request, res: Respons
   }
 });
 
+// dummy comment to trigger restart
 export default router;

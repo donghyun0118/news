@@ -29,11 +29,11 @@ import userRouter from "./routes/user";
 
 const app: Express = express();
 app.set("trust proxy", 1); // 프록시 뒤의 실제 IP를 req.ip에 기록
-const port = Number(process.env.PORT ?? 4000);
+const port = Number(process.env.PORT ?? 4001);
 
 // --- CORS 설정 ---
 const allowedOrigins = [
-  "http://localhost:3000",
+  "http://localhost:4001",
   "https://news-frontend-jg.vercel.app", // Production Frontend
   "https://news02.onrender.com", // Production Backend
   "http://localhost:5173", // Local Vite Dev
@@ -111,7 +111,7 @@ Stack: ${err.stack}
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: allowedOrigins, // 수정된 CORS 옵션 적용
+    origin: [...allowedOrigins, /^https:\/\/news-frontend-.*-leejaegwons-projects\.vercel\.app$/],
     methods: ["GET", "POST"],
     credentials: true,
   },

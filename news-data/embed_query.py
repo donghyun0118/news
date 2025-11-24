@@ -15,11 +15,11 @@ from sentence_transformers import SentenceTransformer
 from dotenv import load_dotenv
 import numpy as np
 
-# .env 파일 로드
+# .env ?�일 로드
 dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
 load_dotenv(dotenv_path=dotenv_path)
 
-MODEL_NAME = os.getenv("EMBED_MODEL", "intfloat/multilingual-e5-base")
+MODEL_NAME = os.getenv("EMBED_MODEL", "intfloat/multilingual-e5-small")
 
 def main():
     # Check if at least one argument (the query) is provided

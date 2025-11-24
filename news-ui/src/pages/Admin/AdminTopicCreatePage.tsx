@@ -12,8 +12,6 @@ const AdminTopicCreatePage = () => {
     summary: "",
     stance_left: "",
     stance_right: "",
-    vote_start_at: "",
-    vote_end_at: "",
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -30,10 +28,12 @@ const AdminTopicCreatePage = () => {
     try {
       await axios.post(`/api/admin/topics`, {
         displayName: topic.display_name,
-        searchKeywords: topic.embedding_keywords, // Backend still expects searchKeywords
+        searchKeywords: topic.embedding_keywords,
         summary: topic.summary || "",
+        stanceLeft: topic.stance_left || "",
+        stanceRight: topic.stance_right || "",
       });
-      alert("새 토픽이 성공적으로 생성 및 발행되었습니다.");
+      alert("새 토픽이 성공적으로 생성되었습니다. (준비 상태)");
       navigate("/admin"); // 저장 후 목록 페이지로 이동
     } catch (error) {
       console.error("Error creating topic:", error);
@@ -74,28 +74,8 @@ const AdminTopicCreatePage = () => {
           <label htmlFor="summary">토픽 요약</label>
           <textarea name="summary" value={topic.summary || ""} onChange={handleChange} rows={5}></textarea>
         </div>
-        <div className="edit-field">
-          <label htmlFor="vote_start_at">투표 시작 시간 (YYYY-MM-DD HH:mm)</label>
-          <input
-            type="text"
-            name="vote_start_at"
-            value={topic.vote_start_at || ""}
-            onChange={handleChange}
-            placeholder="2025-01-01 09:00"
-          />
-        </div>
-        <div className="edit-field">
-          <label htmlFor="vote_end_at">투표 종료 시간 (YYYY-MM-DD HH:mm)</label>
-          <input
-            type="text"
-            name="vote_end_at"
-            value={topic.vote_end_at || ""}
-            onChange={handleChange}
-            placeholder="2025-01-07 23:59"
-          />
-        </div>
         <button type="submit" className="save-btn">
-          저장 및 발행
+          토픽 생성 (준비)
         </button>
       </form>
     </div>

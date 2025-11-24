@@ -1,6 +1,6 @@
 import axios from "axios";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import Pagination from "../../components/Pagination";
 import type { Topic } from "../../types";
 
@@ -13,39 +13,50 @@ const formatDateTime = (value?: string | null) => {
 
 const getStatusText = (status: Topic["status"]) => {
   switch (status) {
-    case "published":
+    case "OPEN":
       return "발행됨";
-    case "suggested":
-      return "제안됨";
-    case "rejected":
-      return "거절됨";
-    case "archived":
-      return "보관됨";
+    case "PREPARING":
+      return "준비 중";
+    case "CLOSED":
+      return "종료됨";
     default:
-      return status;
+      return status || "-";
   }
 };
 
+type TabType = "PREPARING" | "OPEN" | "ALL";
+
 export default function AdminTopicsListPage() {
+  const location = useLocation();
+  const initialTab = (location.state as { initialTab?: TabType })?.initialTab || "ALL";
+
   const [topics, setTopics] = useState<Topic[]>([]);
   const [totalCount, setTotalCount] = useState(0);
+  const [counts, setCounts] = useState({ ALL: 0, OPEN: 0, PREPARING: 0, CLOSED: 0 });
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
 
   useEffect(() => {
     const fetchTopics = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await axios.get(`/api/admin/topics`, {
-          params: {
-            limit: ITEMS_PER_PAGE,
-            page: currentPage,
-          },
-        });
+        const params: { limit: number; page: number; status?: TabType } = {
+          limit: ITEMS_PER_PAGE,
+          page: currentPage,
+        };
+        if (activeTab !== "ALL") {
+          params.status = activeTab;
+        }
+
+        const response = await axios.get(`/api/admin/topics`, { params });
         setTopics(response.data.topics);
         setTotalCount(response.data.total);
+        if (response.data.counts) {
+          setCounts(response.data.counts);
+        }
       } catch (err) {
         setError("토픽 목록을 불러오는 데 실패했습니다.");
         console.error(err);
@@ -55,9 +66,14 @@ export default function AdminTopicsListPage() {
     };
 
     fetchTopics();
-  }, [currentPage]);
+  }, [currentPage, activeTab]);
 
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
+
+  const handleTabChange = (tab: TabType) => {
+    setActiveTab(tab);
+    setCurrentPage(1); // Reset to first page when changing tabs
+  };
 
   return (
     <div className="admin-container">
@@ -74,6 +90,31 @@ export default function AdminTopicsListPage() {
           </Link>
         </div>
       </header>
+
+      {/* Tab Navigation */}
+      <div className="tabs-container" style={{ marginBottom: "20px" }}>
+        <button
+          type="button"
+          className={`tab-button ${activeTab === "ALL" ? "active" : ""}`}
+          onClick={() => handleTabChange("ALL")}
+        >
+          전체 ({counts.ALL})
+        </button>
+        <button
+          type="button"
+          className={`tab-button ${activeTab === "OPEN" ? "active" : ""}`}
+          onClick={() => handleTabChange("OPEN")}
+        >
+          발행됨 ({counts.OPEN})
+        </button>
+        <button
+          type="button"
+          className={`tab-button ${activeTab === "PREPARING" ? "active" : ""}`}
+          onClick={() => handleTabChange("PREPARING")}
+        >
+          준비 중 ({counts.PREPARING})
+        </button>
+      </div>
 
       <div className="admin-table-container">
         {isLoading && <p>로딩 중...</p>}
@@ -98,19 +139,25 @@ export default function AdminTopicsListPage() {
                         {getStatusText(topic.status)}
                       </span>
                     </td>
-                    <td><strong>{topic.display_name || topic.core_keyword}</strong></td>
-                    <td>{topic.search_keywords}</td>
+                    <td>
+                      <strong>{topic.display_name || topic.core_keyword}</strong>
+                    </td>
+                    <td>{topic.search_keywords || topic.embedding_keywords}</td>
                     <td>{formatDateTime(topic.published_at)}</td>
                     <td>
                       <Link to={`/admin/topics/${topic.id}`} className="table-action-btn">
-                        큐레이션
+                        {topic.status === "PREPARING" ? "큐레이션" : "관리"}
                       </Link>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan={5}>생성된 토픽이 없습니다.</td>
+                  <td colSpan={5}>
+                    {activeTab === "PREPARING" && "준비 중인 토픽이 없습니다."}
+                    {activeTab === "OPEN" && "발행된 토픽이 없습니다."}
+                    {activeTab === "ALL" && "생성된 토픽이 없습니다."}
+                  </td>
                 </tr>
               )}
             </tbody>

@@ -165,8 +165,8 @@ export default function AdminPage() {
 
           <div className="dashboard-card">
             <div className="dashboard-card-header">
-              <h3>최근 발행된 토픽</h3>
-              <Link to="/admin/topics" className="view-all-link">
+              <h3>모든 토픽</h3>
+              <Link to="/admin/topics" state={{ initialTab: "ALL" }} className="view-all-link">
                 전체 보기 →
               </Link>
             </div>
@@ -177,13 +177,15 @@ export default function AdminPage() {
                     <li key={item.id}>
                       <Link to={`/admin/topics/${item.id}`}>
                         <span className="activity-title">{item.display_name}</span>
-                        <span className="activity-meta">{formatDateTime(item.published_at)} 발행</span>
+                        <span className="activity-meta">
+                          {item.status === "PREPARING" ? "미발행" : `${formatDateTime(item.published_at)} 발행`}
+                        </span>
                       </Link>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="empty-list-text">최근 발행된 토픽이 없습니다.</p>
+                <p className="empty-list-text">토픽이 없습니다.</p>
               )}
             </div>
           </div>
