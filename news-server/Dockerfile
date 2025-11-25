@@ -8,16 +8,6 @@ WORKDIR /app
 # Context is Repo Root, so we copy from news-server/
 COPY news-server/package*.json ./
 RUN --mount=type=cache,target=/root/.npm \
-# syntax=docker/dockerfile:1.4   # BuildKit 캐시 사용 (Render 기본 활성화)
-
-# ---------- Build stage ----------
-FROM node:22-slim AS builder
-WORKDIR /app
-
-# Install **all** dependencies (dev + prod) for TypeScript compilation
-# Context is Repo Root, so we copy from news-server/
-COPY news-server/package*.json ./
-RUN --mount=type=cache,target=/root/.npm \
     npm ci
 
 # Copy server source code
