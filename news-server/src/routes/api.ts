@@ -21,6 +21,13 @@ const router = Router();
 router.get("/avatars", (req: Request, res: Response) => {
   const avatarDir = path.join(__dirname, "../../public/avatars");
   try {
+    // Create directory if it doesn't exist
+    if (!fs.existsSync(avatarDir)) {
+      fs.mkdirSync(avatarDir, { recursive: true });
+      // Return empty array if directory was just created
+      return res.json([]);
+    }
+
     const files = fs.readdirSync(avatarDir);
     const baseUrl = `${req.protocol}://${req.get("host")}`;
     const avatarUrls = files.map((file) => `${baseUrl}/public/avatars/${file}`);
@@ -94,7 +101,8 @@ router.get("/topics/popular-ranking", async (req: Request, res: Response) => {
       WHERE
         t.status = 'OPEN' AND t.topic_type = 'VOTING'
       ORDER BY
-        popularity_score DESC
+        popularity_score DESC,
+        t.published_at DESC
       LIMIT 10
       `
     );
@@ -168,7 +176,8 @@ router.get("/topics/popular-all", async (req: Request, res: Response) => {
       WHERE
         t.status = 'OPEN' AND t.topic_type = 'VOTING'
       ORDER BY
-        popularity_score DESC
+        popularity_score DESC,
+        t.published_at DESC
       `
     );
     res.json(rows);
@@ -383,9 +392,10 @@ router.post("/topics/:topicId/stance-vote", authenticateUser, async (req: Authen
       // Adjust counts
       const toDecrement = oldSide === "LEFT" ? "vote_count_left" : "vote_count_right";
       const toIncrement = side === "LEFT" ? "vote_count_left" : "vote_count_right";
-      await connection.query(`UPDATE tn_topic SET ${toDecrement} = ${toDecrement} - 1, ${toIncrement} = ${toIncrement} + 1 WHERE id = ?`, [
-        topicId,
-      ]);
+      await connection.query(
+        `UPDATE tn_topic SET ${toDecrement} = ${toDecrement} - 1, ${toIncrement} = ${toIncrement} + 1 WHERE id = ?`,
+        [topicId]
+      );
     } else {
       // New vote
       await connection.query("INSERT INTO tn_topic_vote (topic_id, user_id, side) VALUES (?, ?, ?)", [

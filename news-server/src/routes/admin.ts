@@ -1434,9 +1434,9 @@ router.post("/topics/:topicId/recollect", async (req: Request, res: Response) =>
     typeof payload?.embeddingKeywords === "string" ? payload.embeddingKeywords.trim() : undefined;
 
   try {
-    const [rows]: any = await pool.query("SELECT id FROM tn_topic WHERE id = ? AND status = 'OPEN'", [topicId]);
+    const [rows]: any = await pool.query("SELECT id, status FROM tn_topic WHERE id = ?", [topicId]);
     if (rows.length === 0) {
-      return res.status(404).json({ message: "Published topic not found." });
+      return res.status(404).json({ message: "Topic not found." });
     }
 
     if (normalizedKeywords) {
@@ -1460,6 +1460,21 @@ router.post("/topics/:topicId/recollect", async (req: Request, res: Response) =>
     });
     pythonProcess.stderr.on("data", (data) => {
       console.error(`[recollect stderr]: ${data.toString().trim()}`);
+    });
+
+    pythonProcess.on("close", (code) => {
+      if (code === 0) {
+        console.log(`[recollect] Successfully completed for topic ${topicId}`);
+        pool.query("UPDATE tn_topic SET collection_status = 'completed', updated_at = NOW() WHERE id = ?", [topicId]);
+      } else {
+        console.error(`[recollect] Failed with exit code ${code} for topic ${topicId}`);
+        pool.query("UPDATE tn_topic SET collection_status = 'failed', updated_at = NOW() WHERE id = ?", [topicId]);
+      }
+    });
+
+    pythonProcess.on("error", (err) => {
+      console.error(`[recollect] Failed to start Python script:`, err);
+      pool.query("UPDATE tn_topic SET collection_status = 'failed', updated_at = NOW() WHERE id = ?", [topicId]);
     });
 
     res.json({ message: `Recollection started for topic ${topicId}.`, searchKeywords: normalizedKeywords });

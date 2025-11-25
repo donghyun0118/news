@@ -18,7 +18,7 @@ DB_PORT = int(os.getenv("DB_PORT", 4000))
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_NAME = os.getenv("DB_NAME", "test")
-MODEL_NAME = os.getenv("EMBED_MODEL", "dragonkue/multilingual-e5-small-ko") # Must match DB stored vectors
+MODEL_NAME = os.getenv("EMBED_MODEL", "intfloat/multilingual-e5-base") # Must match DB stored vectors
 
 def get_db_connection():
     return pymysql.connect(
@@ -96,6 +96,9 @@ def collect_articles_for_topic(conn, model, topic_id: int):
             
             # TiDB Vector search query
             # We use cosine distance. The closer to 0, the more similar.
+            # Added constraints:
+            # - published_at within last 7 days
+            # - similarity >= 0.7 (distance <= 0.3)
             search_sql = """
             SELECT id, source, source_domain, title, url, published_at, thumbnail_url,
                    VEC_COSINE_DISTANCE(embedding, %s) as distance
@@ -103,11 +106,13 @@ def collect_articles_for_topic(conn, model, topic_id: int):
             WHERE side = %s 
               AND embedding IS NOT NULL
               AND published_at IS NOT NULL
+              AND published_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+              AND VEC_COSINE_DISTANCE(embedding, %s) <= 0.3
             ORDER BY distance ASC
             LIMIT 10
             """
             
-            cursor.execute(search_sql, (query_embedding_json, side))
+            cursor.execute(search_sql, (query_embedding_json, side, query_embedding_json))
             results = cursor.fetchall()
             
             print(f"Found {len(results)} candidates for {side}.")

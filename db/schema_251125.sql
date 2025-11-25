@@ -11,7 +11,7 @@
  Target Server Version : 80011 (8.0.11-TiDB-v7.5.2-serverless)
  File Encoding         : 65001
 
- Date: 24/11/2025 13:10:12
+ Date: 25/11/2025 11:29:41
 */
 
 SET NAMES utf8mb4;
@@ -42,93 +42,6 @@ CREATE TABLE `tn_article`  (
   UNIQUE INDEX `unique_topic_article`(`topic_id` ASC, `url`(255) ASC) USING BTREE,
   CONSTRAINT `tn_article_ibfk_1` FOREIGN KEY (`topic_id`) REFERENCES `tn_topic` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
 ) ENGINE = InnoDB AUTO_INCREMENT = 750611 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Compact;
-
--- ----------------------------
--- Table structure for tn_article_comment
--- ----------------------------
-DROP TABLE IF EXISTS `tn_article_comment`;
-CREATE TABLE `tn_article_comment`  (
-  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-  `article_id` int(11) NOT NULL,
-  `user_id` bigint(20) UNSIGNED NOT NULL,
-  `parent_comment_id` bigint(20) UNSIGNED NULL DEFAULT NULL,
-  `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
-  `status` enum('ACTIVE','HIDDEN','DELETED_BY_USER','DELETED_BY_ADMIN') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT 'ACTIVE',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `like_count` int(10) UNSIGNED NOT NULL DEFAULT 0 COMMENT '좋아요 수',
-  `dislike_count` int(10) UNSIGNED NOT NULL DEFAULT 0 COMMENT '싫어요 수',
-  `report_count` int(10) UNSIGNED NOT NULL DEFAULT 0 COMMENT '신고 수',
-  PRIMARY KEY (`id`) USING BTREE,
-  INDEX `idx_article_id`(`article_id` ASC) USING BTREE,
-  INDEX `idx_user_id`(`user_id` ASC) USING BTREE,
-  INDEX `idx_parent_comment_id`(`parent_comment_id` ASC) USING BTREE,
-  CONSTRAINT `fk_comment_article` FOREIGN KEY (`article_id`) REFERENCES `tn_article` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT,
-  CONSTRAINT `fk_comment_user` FOREIGN KEY (`user_id`) REFERENCES `tn_user` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT,
-  CONSTRAINT `fk_comment_parent` FOREIGN KEY (`parent_comment_id`) REFERENCES `tn_article_comment` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 450001 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '기사별 댓글 및 대댓글을 저장하는 테이블' ROW_FORMAT = Compact;
-
--- ----------------------------
--- Table structure for tn_article_comment_reaction
--- ----------------------------
-DROP TABLE IF EXISTS `tn_article_comment_reaction`;
-CREATE TABLE `tn_article_comment_reaction`  (
-  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-  `user_id` bigint(20) UNSIGNED NOT NULL COMMENT '반응한 사용자의 ID',
-  `comment_id` bigint(20) UNSIGNED NOT NULL COMMENT '반응 대상 댓글의 ID',
-  `reaction_type` enum('LIKE','DISLIKE') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '반응 종류',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`) USING BTREE,
-  UNIQUE INDEX `uk_user_comment_reaction`(`user_id` ASC, `comment_id` ASC) USING BTREE,
-  INDEX `fk_reaction_to_comment`(`comment_id` ASC) USING BTREE,
-  CONSTRAINT `fk_reaction_to_user` FOREIGN KEY (`user_id`) REFERENCES `tn_user` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT,
-  CONSTRAINT `fk_reaction_to_comment` FOREIGN KEY (`comment_id`) REFERENCES `tn_article_comment` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 630787 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '사용자의 댓글 반응(좋아요/싫어요) 기록' ROW_FORMAT = Compact;
-
--- ----------------------------
--- Table structure for tn_article_comment_report_log
--- ----------------------------
-DROP TABLE IF EXISTS `tn_article_comment_report_log`;
-CREATE TABLE `tn_article_comment_report_log`  (
-  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-  `user_id` bigint(20) UNSIGNED NOT NULL COMMENT '신고한 사용자의 ID',
-  `comment_id` bigint(20) UNSIGNED NOT NULL COMMENT '신고 대상 댓글의 ID',
-  `reason` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '신고 사유 (선택 사항)',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`) USING BTREE,
-  UNIQUE INDEX `uk_user_comment_report`(`user_id` ASC, `comment_id` ASC) USING BTREE,
-  INDEX `fk_report_log_to_comment`(`comment_id` ASC) USING BTREE,
-  CONSTRAINT `fk_report_log_to_user` FOREIGN KEY (`user_id`) REFERENCES `tn_user` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT,
-  CONSTRAINT `fk_report_log_to_comment` FOREIGN KEY (`comment_id`) REFERENCES `tn_article_comment` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 60001 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '사용자의 댓글 신고 기록' ROW_FORMAT = Compact;
-
--- ----------------------------
--- Table structure for tn_article_like
--- ----------------------------
-DROP TABLE IF EXISTS `tn_article_like`;
-CREATE TABLE `tn_article_like`  (
-  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-  `user_id` bigint(20) UNSIGNED NOT NULL,
-  `article_id` int(11) NOT NULL,
-  `topic_id` int(11) NOT NULL COMMENT '분석을 위한 토픽 ID',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`) USING BTREE,
-  UNIQUE INDEX `uk_user_article`(`user_id` ASC, `article_id` ASC) USING BTREE COMMENT '사용자별 기사 좋아요 중복 방지',
-  INDEX `idx_topic_id`(`topic_id` ASC) USING BTREE COMMENT '토픽 ID 인덱스'
-) ENGINE = InnoDB AUTO_INCREMENT = 1173493 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '기사 좋아요 로그' ROW_FORMAT = Compact;
-
--- ----------------------------
--- Table structure for tn_article_view_log
--- ----------------------------
-DROP TABLE IF EXISTS `tn_article_view_log`;
-CREATE TABLE `tn_article_view_log`  (
-  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-  `article_id` bigint(20) NOT NULL COMMENT '조회한 기사 ID',
-  `user_identifier` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '사용자 식별자 (로그인 시 user_id, 비로그인 시 IP 주소)',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`) USING BTREE,
-  INDEX `idx_view_log_lookup`(`article_id` ASC, `user_identifier` ASC, `created_at` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 270001 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '기사 조회 기록 (중복 방지용)' ROW_FORMAT = Compact;
 
 -- ----------------------------
 -- Table structure for tn_chat
@@ -186,7 +99,7 @@ CREATE TABLE `tn_home_article`  (
   `embedding` vector NULL,
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `url`(`url`(255) ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 16920001 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '홈 화면 노출용 기사' ROW_FORMAT = Compact;
+) ENGINE = InnoDB AUTO_INCREMENT = 17040001 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '홈 화면 노출용 기사' ROW_FORMAT = Compact;
 
 -- ----------------------------
 -- Table structure for tn_inquiry
@@ -244,10 +157,71 @@ CREATE TABLE `tn_topic`  (
   `vote_count_left` int(10) UNSIGNED NOT NULL DEFAULT 0 COMMENT '좌측 투표 수',
   `vote_count_right` int(10) UNSIGNED NOT NULL DEFAULT 0 COMMENT '우측 투표 수',
   `topic_type` enum('CATEGORY','VOTING') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT 'VOTING',
+  `popularity_score` int(11) NULL DEFAULT 0 COMMENT '인기 점수 (투표수 + 댓글수*10 + 조회수)',
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `status`(`status` ASC) USING BTREE,
   UNIQUE INDEX `unique_display_name`(`display_name` ASC) USING BTREE
 ) ENGINE = InnoDB AUTO_INCREMENT = 480074 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'AI가 추천하고 관리자가 검토하는 토픽 후보 테이블' ROW_FORMAT = Compact;
+
+-- ----------------------------
+-- Table structure for tn_topic_comment
+-- ----------------------------
+DROP TABLE IF EXISTS `tn_topic_comment`;
+CREATE TABLE `tn_topic_comment`  (
+  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `topic_id` int(11) NOT NULL,
+  `user_id` bigint(20) UNSIGNED NOT NULL,
+  `parent_comment_id` bigint(20) UNSIGNED NULL DEFAULT NULL,
+  `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `status` enum('ACTIVE','HIDDEN','DELETED_BY_USER','DELETED_BY_ADMIN') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT 'ACTIVE',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `like_count` int(10) UNSIGNED NOT NULL DEFAULT 0 COMMENT '좋아요 수',
+  `dislike_count` int(10) UNSIGNED NOT NULL DEFAULT 0 COMMENT '싫어요 수',
+  `report_count` int(10) UNSIGNED NOT NULL DEFAULT 0 COMMENT '신고 수',
+  `user_vote_side` enum('LEFT','RIGHT') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '댓글 작성 시 사용자의 투표 입장',
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_topic_id`(`topic_id` ASC) USING BTREE,
+  INDEX `idx_user_id`(`user_id` ASC) USING BTREE,
+  INDEX `idx_parent_comment_id`(`parent_comment_id` ASC) USING BTREE,
+  CONSTRAINT `fk_topic_comment_topic` FOREIGN KEY (`topic_id`) REFERENCES `tn_topic` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT,
+  CONSTRAINT `fk_topic_comment_user` FOREIGN KEY (`user_id`) REFERENCES `tn_user` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT,
+  CONSTRAINT `fk_topic_comment_parent` FOREIGN KEY (`parent_comment_id`) REFERENCES `tn_topic_comment` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '토픽별 댓글 및 대댓글' ROW_FORMAT = Compact;
+
+-- ----------------------------
+-- Table structure for tn_topic_comment_reaction
+-- ----------------------------
+DROP TABLE IF EXISTS `tn_topic_comment_reaction`;
+CREATE TABLE `tn_topic_comment_reaction`  (
+  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` bigint(20) UNSIGNED NOT NULL COMMENT '반응한 사용자의 ID',
+  `comment_id` bigint(20) UNSIGNED NOT NULL COMMENT '반응 대상 댓글의 ID',
+  `reaction_type` enum('LIKE','DISLIKE') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT '반응 종류',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_user_comment_reaction`(`user_id` ASC, `comment_id` ASC) USING BTREE,
+  INDEX `fk_reaction_to_comment`(`comment_id` ASC) USING BTREE,
+  CONSTRAINT `fk_topic_reaction_to_user` FOREIGN KEY (`user_id`) REFERENCES `tn_user` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT,
+  CONSTRAINT `fk_topic_reaction_to_comment` FOREIGN KEY (`comment_id`) REFERENCES `tn_topic_comment` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '사용자의 토픽 댓글 반응(좋아요/싫어요) 기록' ROW_FORMAT = Compact;
+
+-- ----------------------------
+-- Table structure for tn_topic_comment_report_log
+-- ----------------------------
+DROP TABLE IF EXISTS `tn_topic_comment_report_log`;
+CREATE TABLE `tn_topic_comment_report_log`  (
+  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` bigint(20) UNSIGNED NOT NULL COMMENT '신고한 사용자의 ID',
+  `comment_id` bigint(20) UNSIGNED NOT NULL COMMENT '신고 대상 댓글의 ID',
+  `reason` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL COMMENT '신고 사유 (선택 사항)',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`) USING BTREE,
+  UNIQUE INDEX `uk_user_comment_report`(`user_id` ASC, `comment_id` ASC) USING BTREE,
+  INDEX `fk_report_log_to_comment`(`comment_id` ASC) USING BTREE,
+  CONSTRAINT `fk_topic_report_log_to_user` FOREIGN KEY (`user_id`) REFERENCES `tn_user` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT,
+  CONSTRAINT `fk_topic_report_log_to_comment` FOREIGN KEY (`comment_id`) REFERENCES `tn_topic_comment` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '사용자의 토픽 댓글 신고 기록' ROW_FORMAT = Compact;
 
 -- ----------------------------
 -- Table structure for tn_topic_view_log
@@ -260,7 +234,7 @@ CREATE TABLE `tn_topic_view_log`  (
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_topic_user_time`(`topic_id` ASC, `user_identifier` ASC, `created_at` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 4200001 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '토픽 조회수 중복 방지용 로그' ROW_FORMAT = Compact;
+) ENGINE = InnoDB AUTO_INCREMENT = 4260001 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '토픽 조회수 중복 방지용 로그' ROW_FORMAT = Compact;
 
 -- ----------------------------
 -- Table structure for tn_topic_vote

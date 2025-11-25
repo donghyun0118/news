@@ -45,23 +45,18 @@ const processArticles = (articles: any[]) => {
  *   get:
  *     tags:
  *       - Articles
- *     summary: "카테고리별 최신 기사 목록 조회 (언론사 필터링 지원)"
- *     description: "특정 카테고리의 최신 기사를 조회합니다. `sources` 파라미터 유무에 따라 두 가지 방식으로 동작합니다."
+ *     summary: "카테고리별 최신 기사 목록 조회 (전체 언론사 통합)"
+ *     description: "특정 카테고리의 최신 기사를 조회합니다. 언론사 구분 없이 최근 7일간의 모든 기사를 최신순으로 반환합니다. (side 컬럼 제외)"
  *     parameters:
  *       - in: query
  *         name: name
  *         required: true
  *         schema:
  *           type: string
- *         description: "필터링할 카테고리 이름 (예: 정치, 경제)"
- *       - in: query
- *         name: sources
- *         schema:
- *           type: string
- *         description: "필터링할 언론사 이름 1개. 이 값을 제공하면 해당 언론사의 기사 10개만 반환됩니다. 제공하지 않으면 모든 언론사의 기사를 합쳐 60개 반환됩니다."
+ *         description: "조회할 카테고리 이름 (예: 정치, 경제)"
  *     responses:
  *       200:
- *         description: "기사 목록"
+ *         description: "기사 목록 (최근 7일 전체)"
  */
 router.get("/by-category", optionalAuthenticateUser, async (req: AuthenticatedRequest, res: Response) => {
   const { name, sources } = req.query;
@@ -71,41 +66,16 @@ router.get("/by-category", optionalAuthenticateUser, async (req: AuthenticatedRe
   }
 
   try {
-    let query: string;
-    let params: (string | number | null)[];
-
-    const sourceList = typeof sources === "string" && sources ? sources.split(",") : [];
-
-    if (sourceList.length > 0) {
-      // New logic: Fetch 10 articles per specified source
-      const perSourceLimit = 10;
-      const subQueries = sourceList.map(
-        () => `
-        (SELECT a.*
-         FROM tn_home_article a
-         WHERE a.category = ? AND a.source = ? AND a.published_at >= NOW() - INTERVAL 3 DAY
-         ORDER BY a.published_at DESC
-         LIMIT ?)
-      `
-      );
-      query = subQueries.join(" UNION ALL ");
-
-      params = [];
-      sourceList.forEach((source) => {
-        params.push(name as string, source, perSourceLimit);
-      });
-    } else {
-      // Fallback logic: Fetch latest 60 for the category if no sources are specified
-      const limit = 60;
-      query = `
-        SELECT a.*
-        FROM tn_home_article a
-        WHERE a.category = ? AND a.published_at >= NOW() - INTERVAL 3 DAY
-        ORDER BY a.published_at DESC
-        LIMIT ?
-      `;
-      params = [name as string, limit];
-    }
+    // User requested to ignore 'sources' filtering and return all articles for the category.
+    // Also requested to exclude 'side' column.
+    // Also requested to return ALL articles (no limit) within the last 7 days.
+    const query = `
+      SELECT id, title, description, url, thumbnail_url, published_at, source, source_domain, category
+      FROM tn_home_article
+      WHERE category = ? AND published_at >= NOW() - INTERVAL 7 DAY
+      ORDER BY published_at DESC
+    `;
+    const params = [name as string];
 
     const [rows] = await pool.query(query, params);
     res.json(processArticles(rows as any[]));

@@ -27,7 +27,10 @@ RUN apt-get update && \
 # Copy compiled output
 COPY --from=builder /app/dist ./dist
 # Copy source files needed by Swagger (routes, config, etc.)
+# Copy source files needed by Swagger (routes, config, etc.)
 COPY --from=builder /app/src ./src
+# Copy public assets (avatars, etc.)
+COPY --from=builder /app/public ./public
 
 # Copy python scripts (from Repo Root context)
 COPY news-data /news-data

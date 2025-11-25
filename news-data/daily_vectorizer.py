@@ -27,7 +27,7 @@ from dotenv import load_dotenv
 dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
 load_dotenv(dotenv_path=dotenv_path)
 
-MODEL_NAME = os.getenv("EMBED_MODEL", "dragonkue/multilingual-e5-small-ko")
+MODEL_NAME = os.getenv("EMBED_MODEL", "intfloat/multilingual-e5-base")
 DB_CONFIG = {
     "host": os.getenv("DB_HOST"),
     "port": int(os.getenv("DB_PORT", 3306)),
@@ -36,7 +36,7 @@ DB_CONFIG = {
     "database": os.getenv("DB_DATABASE"),
 }
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
-BATCH_SIZE = int(os.getenv("BATCH_SIZE", "5"))  # Reduced for low-memory environments
+BATCH_SIZE = int(os.getenv("BATCH_SIZE", "500"))  # Increased for faster processing
 LOCK_FILE_TIMEOUT = int(os.getenv("INDEXER_LOCK_TIMEOUT", "3600")) # 1 hour
 
 if os.getenv("DB_SSL_ENABLED") == 'true':
@@ -121,7 +121,9 @@ def main():
 
         if updates:
             update_query = "UPDATE tn_home_article SET embedding = %s WHERE id = %s"
-            cursor.executemany(update_query, updates)
+            # Execute one by one to avoid timeout with large vectors
+            for update_data in updates:
+                cursor.execute(update_query, update_data)
             cnx.commit()
             logging.info(f"Successfully updated embeddings for {len(updates)} articles.")
             
