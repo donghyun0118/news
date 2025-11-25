@@ -335,7 +335,7 @@ router.post("/topics/:topicId/view", optionalAuthenticateUser, async (req: Authe
  *   post:
  *     tags: [Topics]
  *     summary: 토픽 주장 투표하기
- *     description: "사용자가 특정 토픽에 대해 자신의 입장을 투표합니다. 재투표 시 기존 투표는 변경됩니다."
+ *     description: "사용자가 특정 토픽에 대해 자신의 입장을 투표합니다. **투표는 한 번만 가능하며, 변경할 수 없습니다.**"
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -357,6 +357,8 @@ router.post("/topics/:topicId/view", optionalAuthenticateUser, async (req: Authe
  *     responses:
  *       200:
  *         description: "투표 성공"
+ *       400:
+ *         description: "이미 투표했거나 잘못된 요청"
  */
 router.post("/topics/:topicId/stance-vote", authenticateUser, async (req: AuthenticatedRequest, res: Response) => {
   const { topicId } = req.params;

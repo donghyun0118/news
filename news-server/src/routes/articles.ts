@@ -87,68 +87,6 @@ router.get("/by-category", optionalAuthenticateUser, async (req: AuthenticatedRe
 
 /**
  * @swagger
- * /api/articles/by-source:
- *   get:
- *     tags:
- *       - Articles
- *     summary: "언론사별 최신 기사 목록 조회"
- *     description: "특정 언론사에 해당하는 기사 목록을 최신순으로 조회합니다."
- *     parameters:
- *       - in: query
- *         name: name
- *         required: true
- *         schema:
- *           type: string
- *         description: "필터링할 언론사 이름 (예: 경향신문, 조선일보)"
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 30
- *         description: "한 번에 가져올 기사 수"
- *       - in: query
- *         name: offset
- *         schema:
- *           type: integer
- *           default: 0
- *         description: "건너뛸 기사 수 (페이지네이션용)"
- *     responses:
- *       200:
- *         description: "해당 언론사의 기사 목록"
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 $ref: '#/components/schemas/ArticleWithFavicon'
- */
-router.get("/by-source", optionalAuthenticateUser, async (req: AuthenticatedRequest, res: Response) => {
-  const name = req.query.name as string;
-  const limit = parseInt((req.query.limit as string) || "30", 10);
-  const offset = parseInt((req.query.offset as string) || "0", 10);
-
-  if (!name) {
-    return res.status(400).json({ message: "언론사 이름을 'name' 파라미터로 제공해야 합니다." });
-  }
-
-  try {
-    const query = `
-      SELECT a.*
-      FROM tn_home_article a
-      WHERE a.source = ?
-      ORDER BY a.published_at DESC
-      LIMIT ? OFFSET ?
-    `;
-    const [rows] = await pool.query(query, [name, limit, offset]);
-    res.json(processArticles(rows as any[]));
-  } catch (error) {
-    console.error("Error fetching articles by source:", error);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-/**
- * @swagger
  * /api/articles/{articleId}/save:
  *   post:
  *     tags:

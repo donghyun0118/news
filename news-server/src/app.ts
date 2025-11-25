@@ -34,10 +34,11 @@ const port = Number(process.env.PORT ?? 4001);
 // --- CORS 설정 ---
 const allowedOrigins = [
   "http://localhost:4001",
-  "https://news-frontend-jg.vercel.app", // Production Frontend
-  "https://news02.onrender.com", // Production Backend
-  "https://news01.onrender.com", // Production Backend (new)
+  "http://localhost:3000", // Local Dev Frontend
   "http://localhost:5173", // Local Vite Dev
+  "https://news-frontend-jg.vercel.app", // Production Frontend
+  "https://news02.onrender.com", // Production Backend (old)
+  "https://news01.onrender.com", // Production Backend (new)
 ];
 
 const corsOptions = {
