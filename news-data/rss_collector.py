@@ -264,14 +264,21 @@ def fetch_and_parse_feed(feed_info: Dict[str, Any]) -> List[Dict[str, Any]]:
             # HTML 태그 제거 후 엔티티 변환 (&apos;, &middot;, &nbsp; 등)
             description_text = re.sub('<[^<]+?>', '', description_html).strip()
             description_text = html.unescape(description_text)
-            # Remove author/source tags like [OSEN=조형래 기자] or (OSEN=조형래 기자)
-            description_text = re.sub(r'[\[\(][^=]*=[^\]\)]+[\]\)]', '', description_text).strip()
+            
+            # Remove author/source tags like [OSEN=조형래 기자], (OSEN=조형래 기자), [스포츠조선 나유리 기자]
+            # Pattern 1: [XXX=기자이름 기자] or (XXX=기자이름 기자)
+            description_text = re.sub(r'[\[\(][^=\[\]\(\)]*=[^\]\)]+[\]\)]', '', description_text).strip()
+            # Pattern 2: [스포츠조선 기자이름 기자], [조선일보 기자이름 기자] 등
+            description_text = re.sub(r'[\[\(](스포츠조선|조선일보|동아일보|중앙일보|경향신문|한겨레|연합뉴스|뉴시스|오마이뉴스)\s*[^\]]+기자[\]\)]', '', description_text).strip()
             
             source_name = feed_info['source']
 
             # For Yonhap, Newsis, and Chosun Ilbo, remove the initial reporter tag
             if source_name in ['연합뉴스', '뉴시스', '조선일보']:
+                # Pattern: 기자이름 기자 = ...
                 description_text = re.sub(r'^.*?기자\s*=\s*', '', description_text).strip()
+                # Pattern: [기자이름 기자] or 기자이름 기자 at the start
+                description_text = re.sub(r'^[\[\(]?[가-힣]+\s*기자[\]\)]?\s*[=\-–]\s*', '', description_text).strip()
             
             # If description is empty for Hankyoreh or Chosun Ilbo, try to scrape meta description
             if not description_text and source_name in ['한겨레', '조선일보']:

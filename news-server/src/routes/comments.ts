@@ -49,11 +49,18 @@ router.get("/comments/topics/:topicId", optionalAuthenticateUser, async (req: Au
       [userId, topicId]
     );
 
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+
     // Build a tree structure for comments
     const commentMap = new Map();
     const rootComments: any[] = [];
 
     comments.forEach((comment: any) => {
+      // Convert profile_image_url to absolute URL
+      if (comment.profile_image_url) {
+        comment.profile_image_url = `${baseUrl}${comment.profile_image_url}`;
+      }
+
       comment.replies = [];
       commentMap.set(comment.id, comment);
       if (comment.parent_comment_id) {

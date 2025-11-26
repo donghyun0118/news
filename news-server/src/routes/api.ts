@@ -207,11 +207,8 @@ router.get("/topics/popular-all", async (req: Request, res: Response) => {
  *         description: 토픽 정보와 관련 기사 목록을 반환했습니다.
  */
 router.get("/topics/:topicId", optionalAuthenticateUser, async (req: AuthenticatedRequest, res: Response) => {
-  console.log("=== GET /topics/:topicId called ===");
   const { topicId } = req.params;
   const userId = req.user?.userId || null; // Ensure null if undefined
-
-  console.log(`Fetching topic detail for ID: ${topicId}, UserID: ${userId}`);
 
   try {
     const [topicRows]: any = await pool.query(
@@ -230,10 +227,6 @@ router.get("/topics/:topicId", optionalAuthenticateUser, async (req: Authenticat
     );
 
     if (topicRows.length === 0) {
-      console.log(`Topic ${topicId} not found with status='OPEN'. Checking DB...`);
-      const [check]: any = await pool.query("SELECT id, status, topic_type FROM tn_topic WHERE id = ?", [topicId]);
-      console.log(`DB Check for Topic ${topicId}:`, check);
-
       return res.status(404).json({ message: "Topic not found" });
     }
 
@@ -253,8 +246,6 @@ router.get("/topics/:topicId", optionalAuthenticateUser, async (req: Authenticat
       `,
       [userId, topicId]
     );
-
-    console.log(`Found ${(articleRows as any[]).length} articles for topic ${topicId}`);
 
     const articlesWithFavicon = (articleRows as any[]).map((article) => ({
       ...article,
@@ -461,8 +452,6 @@ router.get("/search", optionalAuthenticateUser, async (req: AuthenticatedRequest
     res.status(500).json({ message: "Server error" });
   }
 });
-
-
 
 /**
  * @swagger
