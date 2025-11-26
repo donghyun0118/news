@@ -9,6 +9,12 @@ dist
 # 환경변수 파일 (Docker-compose에서 주입함)
 .env
 
-# 로그 파일
+# 로그 파일 (모든 위치)
 npm-debug.log
 logs
+*.log
+
+# Python 캐시
+__pycache__
+*.pyc
+*.pyo

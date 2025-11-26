@@ -66,29 +66,30 @@ export default function AdminPage() {
   const navigate = useNavigate();
   const { logout } = useAdminAuth();
 
-  const fetchData = async () => {
-    try {
-      const [statsRes, topicsRes, inquiriesRes] = await Promise.all([
-        axios.get("/api/admin/stats"),
-        axios.get("/api/admin/topics/published?limit=3"),
-        axios.get("/api/admin/inquiries?limit=3"),
-      ]);
-      setStats(statsRes.data);
-      setRecentTopics(topicsRes.data);
-      setRecentInquiries(inquiriesRes.data);
-    } catch (error) {
-      console.error("대시보드 데이터를 불러오는 중 오류가 발생했습니다.", error);
-      setStats(
-        stats ?? {
-          topics: { published: 0, suggested: 0 },
-          inquiries: { total: 0, pending: 0 },
-          users: { total: 0, today: 0 },
-        }
-      );
-    }
-  };
-
   useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [statsRes, topicsRes, inquiriesRes] = await Promise.all([
+          axios.get("/api/admin/stats"),
+          axios.get("/api/admin/topics/published?limit=3"),
+          axios.get("/api/admin/inquiries?limit=3"),
+        ]);
+        setStats(statsRes.data);
+        setRecentTopics(topicsRes.data);
+        setRecentInquiries(inquiriesRes.data);
+      } catch (error) {
+        console.error("대시보드 데이터를 불러오는 중 오류가 발생했습니다.", error);
+        setStats(
+          (prev) =>
+            prev ?? {
+              topics: { published: 0, suggested: 0 },
+              inquiries: { total: 0, pending: 0 },
+              users: { total: 0, today: 0 },
+            }
+        );
+      }
+    };
+
     fetchData();
   }, []);
 

@@ -20,7 +20,6 @@ import AdminTopicsListPage from "./pages/Admin/AdminTopicsListPage";
 import AdminTopicVotesPage from "./pages/Admin/AdminTopicVotesPage";
 import AdminUserDetailPage from "./pages/Admin/AdminUserDetailPage";
 import AdminUsersListPage from "./pages/Admin/AdminUsersListPage";
-import AdminDashboard from "./pages/AdminDashboard";
 import HomePage from "./pages/Public/HomePage";
 import LoginPage from "./pages/Public/LoginPage";
 import MyPage from "./pages/Public/MyPage";
