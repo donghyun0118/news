@@ -1,3 +1,4 @@
+import { Badge, Button, Card, CardContent } from "@/components/ui";
 import axios from "axios";
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
@@ -21,6 +22,19 @@ const getStatusText = (status: Topic["status"]) => {
       return "종료됨";
     default:
       return status || "-";
+  }
+};
+
+const getStatusVariant = (status: Topic["status"]): "default" | "success" | "warning" | "destructive" => {
+  switch (status) {
+    case "OPEN":
+      return "success";
+    case "PREPARING":
+      return "warning";
+    case "CLOSED":
+      return "default";
+    default:
+      return "default";
   }
 };
 
@@ -72,100 +86,131 @@ export default function AdminTopicsListPage() {
 
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
-    setCurrentPage(1); // Reset to first page when changing tabs
+    setCurrentPage(1);
   };
 
   return (
-    <div className="admin-container">
-      <header className="admin-page-header">
-        <div>
-          <h1>전체 토픽 목록</h1>
-        </div>
-        <div className="admin-page-actions">
-          <Link to="/admin/topics/new" className="create-new-topic-btn">
-            + 새 토픽 생성
-          </Link>
-          <Link to="/admin" className="back-link">
-            ← 대시보드로 돌아가기
-          </Link>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-gray-900">전체 토픽 목록</h1>
+            <div className="flex gap-3">
+              <Link to="/admin/topics/new">
+                <Button>+ 새 토픽 생성</Button>
+              </Link>
+              <Link to="/admin">
+                <Button variant="outline">← 대시보드</Button>
+              </Link>
+            </div>
+          </div>
         </div>
       </header>
 
-      {/* Tab Navigation */}
-      <div className="filter-tabs" style={{ marginBottom: "24px", display: "flex", gap: "12px" }}>
-        <button
-          type="button"
-          className={`filter-tab ${activeTab === "ALL" ? "active" : ""}`}
-          onClick={() => handleTabChange("ALL")}
-        >
-          전체 <span className="tab-count">{counts.ALL}</span>
-        </button>
-        <button
-          type="button"
-          className={`filter-tab ${activeTab === "OPEN" ? "active" : ""}`}
-          onClick={() => handleTabChange("OPEN")}
-        >
-          발행됨 <span className="tab-count">{counts.OPEN}</span>
-        </button>
-        <button
-          type="button"
-          className={`filter-tab ${activeTab === "PREPARING" ? "active" : ""}`}
-          onClick={() => handleTabChange("PREPARING")}
-        >
-          준비 중 <span className="tab-count">{counts.PREPARING}</span>
-        </button>
-      </div>
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Tab Navigation */}
+        <div className="flex gap-2 mb-6">
+          <button
+            type="button"
+            onClick={() => handleTabChange("ALL")}
+            className={`px-4 py-2 rounded-md font-medium transition-colors ${
+              activeTab === "ALL" ? "bg-blue-600 text-white" : "bg-white text-gray-700 hover:bg-gray-50 border"
+            }`}
+          >
+            전체 <span className="ml-1 text-sm">({counts.ALL})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabChange("OPEN")}
+            className={`px-4 py-2 rounded-md font-medium transition-colors ${
+              activeTab === "OPEN" ? "bg-blue-600 text-white" : "bg-white text-gray-700 hover:bg-gray-50 border"
+            }`}
+          >
+            발행됨 <span className="ml-1 text-sm">({counts.OPEN})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabChange("PREPARING")}
+            className={`px-4 py-2 rounded-md font-medium transition-colors ${
+              activeTab === "PREPARING" ? "bg-blue-600 text-white" : "bg-white text-gray-700 hover:bg-gray-50 border"
+            }`}
+          >
+            준비 중 <span className="ml-1 text-sm">({counts.PREPARING})</span>
+          </button>
+        </div>
 
-      <div className="admin-table-container">
-        {isLoading && <p>로딩 중...</p>}
-        {error && <p className="error-message">{error}</p>}
-        {!isLoading && !error && (
-          <table>
-            <thead>
-              <tr>
-                <th>상태</th>
-                <th>토픽 이름</th>
-                <th>검색 키워드</th>
-                <th>발행일</th>
-                <th>관리</th>
-              </tr>
-            </thead>
-            <tbody>
-              {topics.length > 0 ? (
-                topics.map((topic) => (
-                  <tr key={topic.id}>
-                    <td>
-                      <span className={`status-badge status-${topic.status?.toLowerCase()}`}>
-                        {getStatusText(topic.status)}
-                      </span>
-                    </td>
-                    <td>
-                      <strong>{topic.display_name || topic.core_keyword}</strong>
-                    </td>
-                    <td>{topic.search_keywords || topic.embedding_keywords}</td>
-                    <td>{formatDateTime(topic.published_at)}</td>
-                    <td>
-                      <Link to={`/admin/topics/${topic.id}`} className="table-action-btn">
-                        {topic.status === "PREPARING" ? "큐레이션" : "관리"}
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={5}>
-                    {activeTab === "PREPARING" && "준비 중인 토픽이 없습니다."}
-                    {activeTab === "OPEN" && "발행된 토픽이 없습니다."}
-                    {activeTab === "ALL" && "생성된 토픽이 없습니다."}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
-      </div>
+        {/* Topics Table */}
+        <Card>
+          <CardContent className="p-0">
+            {isLoading && <div className="text-center py-12 text-gray-500">로딩 중...</div>}
+            {error && <div className="text-center py-12 text-red-600">{error}</div>}
+            {!isLoading && !error && (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="text-left py-3 px-4 font-medium text-gray-600">상태</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-600">토픽 이름</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-600">검색 키워드</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-600">발행일</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-600">관리</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {topics.length > 0 ? (
+                      topics.map((topic) => (
+                        <tr key={topic.id} className="border-b hover:bg-gray-50 transition-colors">
+                          <td className="py-3 px-4">
+                            <Badge variant={getStatusVariant(topic.status)}>{getStatusText(topic.status)}</Badge>
+                          </td>
+                          <td className="py-3 px-4">
+                            <strong className="text-gray-900">{topic.display_name || topic.core_keyword}</strong>
+                          </td>
+                          <td className="py-3 px-4 text-gray-600">
+                            {topic.search_keywords || topic.embedding_keywords}
+                          </td>
+                          <td className="py-3 px-4 text-gray-600">{formatDateTime(topic.published_at)}</td>
+                          <td className="py-3 px-4">
+                            <div className="flex gap-2">
+                              <Link to={`/admin/topics/${topic.id}`}>
+                                <Button variant="ghost" size="sm">
+                                  {topic.status === "PREPARING" ? "큐레이션" : "관리"}
+                                </Button>
+                              </Link>
+                              {topic.status === "OPEN" && (
+                                <Link to={`/admin/topics/${topic.id}/votes`}>
+                                  <Button variant="outline" size="sm">
+                                    📊 투표현황
+                                  </Button>
+                                </Link>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="text-center py-12 text-gray-500">
+                          {activeTab === "PREPARING" && "준비 중인 토픽이 없습니다."}
+                          {activeTab === "OPEN" && "발행된 토픽이 없습니다."}
+                          {activeTab === "ALL" && "생성된 토픽이 없습니다."}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-      <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+        {/* Pagination */}
+        <div className="mt-6">
+          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+        </div>
+      </main>
     </div>
   );
 }

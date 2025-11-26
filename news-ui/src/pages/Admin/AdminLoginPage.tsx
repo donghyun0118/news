@@ -1,4 +1,5 @@
-﻿import { useState, useEffect } from "react";
+﻿import { Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { apiClient } from "../../api";
 import { useAdminAuth } from "../../context/AdminAuthContext";
@@ -39,28 +40,58 @@ const AdminLoginPage = () => {
   };
 
   return (
-    <div className="admin-login-page">
-      <form className="admin-login-form" onSubmit={handleSubmit}>
-        <h1>관리자 로그인</h1>
-        <label>
-          아이디
-          <input type="text" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required />
-        </label>
-        <label>
-          비밀번호
-          <input
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            autoComplete="current-password"
-            required
-          />
-        </label>
-        {errorMessage && <p className="login-error-message">{errorMessage}</p>}
-        <button type="submit" className="login-submit-btn" disabled={isSubmitting}>
-          {isSubmitting ? "로그인 중..." : "로그인"}
-        </button>
-      </form>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <CardTitle className="text-3xl font-bold text-gray-900">관리자 로그인</CardTitle>
+          <p className="text-gray-600 mt-2">Different News Admin Panel</p>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
+                아이디
+              </label>
+              <input
+                id="username"
+                type="text"
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                autoComplete="username"
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="관리자 아이디"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                비밀번호
+              </label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="비밀번호"
+              />
+            </div>
+
+            {errorMessage && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
+                {errorMessage}
+              </div>
+            )}
+
+            <Button type="submit" disabled={isSubmitting} className="w-full">
+              {isSubmitting ? "로그인 중..." : "로그인"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 };

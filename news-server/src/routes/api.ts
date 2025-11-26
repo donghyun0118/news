@@ -462,6 +462,8 @@ router.get("/search", optionalAuthenticateUser, async (req: AuthenticatedRequest
   }
 });
 
+
+
 /**
  * @swagger
  * /api/keywords:

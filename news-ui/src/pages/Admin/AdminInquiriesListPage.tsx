@@ -1,3 +1,4 @@
+import { Badge, Button, Card, CardContent } from "@/components/ui";
 import axios from "axios";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -31,6 +32,19 @@ const getStatusText = (status: Inquiry["status"]) => {
   }
 };
 
+const getStatusVariant = (status: Inquiry["status"]): "default" | "success" | "warning" | "destructive" => {
+  switch (status) {
+    case "SUBMITTED":
+      return "warning";
+    case "IN_PROGRESS":
+      return "default";
+    case "RESOLVED":
+      return "success";
+    default:
+      return "default";
+  }
+};
+
 export default function AdminInquiriesListPage() {
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -50,16 +64,12 @@ export default function AdminInquiriesListPage() {
             offset: offset,
           },
         });
-        // 참고: 현재 API는 전체 카운트를 반환하지 않으므로, 임시로 처리합니다.
-        // 추후 API가 X-Total-Count 헤더 등을 반환하면 그 값을 사용해야 합니다.
         setInquiries(response.data);
         if (currentPage === 1 && response.data.length < ITEMS_PER_PAGE) {
           setTotalCount(response.data.length);
         } else if (response.data.length === 0 && currentPage > 1) {
-          // 마지막 페이지 너머로 갔을 경우, 마지막 페이지로 이동
           setCurrentPage(currentPage - 1);
         } else {
-          // 전체 카운트를 알 수 없으므로, 다음 페이지가 있는 것처럼 가정
           setTotalCount(currentPage * ITEMS_PER_PAGE + 1);
         }
       } catch (err) {
@@ -76,58 +86,75 @@ export default function AdminInquiriesListPage() {
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
   return (
-    <div className="admin-container">
-      <header className="admin-page-header">
-        <h1>전체 문의 목록</h1>
-        <Link to="/admin" className="back-link">
-          ← 대시보드로 돌아가기
-        </Link>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-gray-900">전체 문의 목록</h1>
+            <Link to="/admin">
+              <Button variant="outline">← 대시보드</Button>
+            </Link>
+          </div>
+        </div>
       </header>
 
-      <div className="admin-table-container">
-        {isLoading && <p>로딩 중...</p>}
-        {error && <p className="error-message">{error}</p>}
-        {!isLoading && !error && (
-          <table>
-            <thead>
-              <tr>
-                <th>상태</th>
-                <th>제목</th>
-                <th>작성자</th>
-                <th>문의 시각</th>
-                <th>관리</th>
-              </tr>
-            </thead>
-            <tbody>
-              {inquiries.length > 0 ? (
-                inquiries.map((inquiry) => (
-                  <tr key={inquiry.id}>
-                    <td>
-                      <span className={`status-badge status-${inquiry.status.toLowerCase()}`}>
-                        {getStatusText(inquiry.status)}
-                      </span>
-                    </td>
-                    <td>{inquiry.subject}</td>
-                    <td>{inquiry.user_nickname}</td>
-                    <td>{formatDateTime(inquiry.created_at)}</td>
-                    <td>
-                      <Link to={`/admin/inquiries/${inquiry.id}`} className="table-action-btn">
-                        상세 보기
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={5}>받은 문의가 없습니다.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
-      </div>
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Card>
+          <CardContent className="p-0">
+            {isLoading && <div className="text-center py-12 text-gray-500">로딩 중...</div>}
+            {error && <div className="text-center py-12 text-red-600">{error}</div>}
+            {!isLoading && !error && (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="text-left py-3 px-4 font-medium text-gray-600">상태</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-600">제목</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-600">작성자</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-600">문의 시각</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-600">관리</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {inquiries.length > 0 ? (
+                      inquiries.map((inquiry) => (
+                        <tr key={inquiry.id} className="border-b hover:bg-gray-50 transition-colors">
+                          <td className="py-3 px-4">
+                            <Badge variant={getStatusVariant(inquiry.status)}>{getStatusText(inquiry.status)}</Badge>
+                          </td>
+                          <td className="py-3 px-4 font-medium text-gray-900">{inquiry.subject}</td>
+                          <td className="py-3 px-4 text-gray-600">{inquiry.user_nickname}</td>
+                          <td className="py-3 px-4 text-gray-600">{formatDateTime(inquiry.created_at)}</td>
+                          <td className="py-3 px-4">
+                            <Link to={`/admin/inquiries/${inquiry.id}`}>
+                              <Button variant="ghost" size="sm">
+                                상세 보기
+                              </Button>
+                            </Link>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="text-center py-12 text-gray-500">
+                          받은 문의가 없습니다.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-      <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+        {/* Pagination */}
+        <div className="mt-6">
+          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+        </div>
+      </main>
     </div>
   );
 }

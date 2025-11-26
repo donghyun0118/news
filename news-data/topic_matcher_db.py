@@ -101,7 +101,7 @@ def collect_articles_for_topic(conn, model, topic_id: int):
             # - similarity >= 0.7 (distance <= 0.3)
             # - exclude articles already added to this topic
             search_sql = """
-            SELECT id, source, source_domain, title, url, published_at, thumbnail_url,
+            SELECT id, source, source_domain, title, url, published_at, thumbnail_url, description,
                    VEC_COSINE_DISTANCE(embedding, %s) as distance
             FROM tn_home_article
             WHERE side = %s 
@@ -122,15 +122,15 @@ def collect_articles_for_topic(conn, model, topic_id: int):
             for row in results:
                 # Insert into tn_article (no need to check duplicates, already filtered in SQL)
                 insert_sql = """
-                INSERT INTO tn_article (topic_id, source, source_domain, side, title, url, published_at, thumbnail_url, status, similarity)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'suggested', %s)
+                INSERT INTO tn_article (topic_id, source, source_domain, side, title, url, published_at, thumbnail_url, rss_desc, status, similarity)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'suggested', %s)
                 """
                 # distance is 0 for identical, 1 for opposite. Similarity = 1 - distance (roughly)
                 similarity = 1 - row['distance']
                 
                 cursor.execute(insert_sql, (
                     topic_id, row['source'], row['source_domain'], side, row['title'], 
-                    row['url'], row['published_at'], row['thumbnail_url'], similarity
+                    row['url'], row['published_at'], row['thumbnail_url'], row['description'], similarity
                 ))
                 inserted_count += 1
         

@@ -1,3 +1,4 @@
+import { Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import axios from "axios";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -19,7 +20,6 @@ export default function AdminSystemLogPage() {
       try {
         const response = await axios.get<LogFile[]>("/api/admin/logs");
         setLogFiles(response.data);
-        // Automatically select the first log file if available
         if (response.data.length > 0) {
           handleLogSelect(response.data[0]);
         }
@@ -40,7 +40,7 @@ export default function AdminSystemLogPage() {
     try {
       const response = await axios.get("/api/admin/logs/view", {
         params: { path: logFile.path },
-        transformResponse: (res) => res, // Prevent axios from parsing it as JSON
+        transformResponse: (res) => res,
       });
       setLogContent(response.data);
     } catch (err) {
@@ -56,39 +56,61 @@ export default function AdminSystemLogPage() {
   };
 
   return (
-    <div className="admin-container admin-system-log-page">
-      <header className="admin-page-header">
-        <h1>시스템 로그</h1>
-        <Link to="/admin" className="back-link">
-          ← 대시보드로 돌아가기
-        </Link>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-gray-900">시스템 로그</h1>
+            <Link to="/admin">
+              <Button variant="outline">← 대시보드</Button>
+            </Link>
+          </div>
+        </div>
       </header>
 
-      <div className="log-viewer-layout">
-        <div className="log-selector">
-          <h4>로그 파일 선택</h4>
-          <div className="log-file-list">
-            {logFiles.map((file) => (
-              <button
-                key={file.path}
-                className={`log-file-btn ${selectedLog?.path === file.path ? "active" : ""}`}
-                onClick={() => handleLogSelect(file)}
-              >
-                {file.name}
-              </button>
-            ))}
-          </div>
-        </div>
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Log File Selector */}
+          <Card className="lg:col-span-1">
+            <CardHeader>
+              <CardTitle className="text-lg">로그 파일 선택</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {logFiles.map((file) => (
+                  <button
+                    key={file.path}
+                    onClick={() => handleLogSelect(file)}
+                    className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
+                      selectedLog?.path === file.path
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                    }`}
+                  >
+                    {file.name}
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
-        <div className="log-content-container">
-          {selectedLog && <h3>{selectedLog.name}</h3>}
-          <div className="log-content-viewer">
-            {isLoading && <p>로그를 불러오는 중...</p>}
-            {error && <pre className="log-error">{error}</pre>}
-            {!isLoading && !error && <pre>{logContent || "표시할 내용이 없습니다."}</pre>}
-          </div>
+          {/* Log Content Viewer */}
+          <Card className="lg:col-span-3">
+            <CardHeader>
+              <CardTitle>{selectedLog?.name || "로그 선택"}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="bg-gray-900 text-green-400 p-4 rounded-md font-mono text-sm overflow-auto max-h-[600px]">
+                {isLoading && <p>로그를 불러오는 중...</p>}
+                {error && <pre className="text-red-400">{error}</pre>}
+                {!isLoading && !error && <pre>{logContent || "표시할 내용이 없습니다."}</pre>}
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

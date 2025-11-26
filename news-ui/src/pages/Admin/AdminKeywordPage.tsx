@@ -1,0 +1,109 @@
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Input,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui";
+import axios from "axios";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+
+export default function AdminKeywordPage() {
+  const [keywords, setKeywords] = useState<Array<{ id: number; display_name: string }>>([]);
+  const [newKeyword, setNewKeyword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const fetchKeywords = async () => {
+    try {
+      const { data } = await axios.get("/api/admin/keywords");
+      setKeywords(data.keywords);
+    } catch (error) {
+      console.error("Error fetching keywords:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchKeywords();
+  }, []);
+
+  const handleCreate = async () => {
+    if (!newKeyword.trim()) return;
+    setLoading(true);
+    try {
+      await axios.post("/api/admin/keywords", { keyword: newKeyword.trim() });
+      setNewKeyword("");
+      fetchKeywords();
+    } catch (error) {
+      console.error("Error creating keyword:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!window.confirm("키워드를 삭제하시겠습니까?")) return;
+    try {
+      await axios.delete(`/api/admin/keywords/${id}`);
+      fetchKeywords();
+    } catch (error) {
+      console.error("Error deleting keyword:", error);
+    }
+  };
+
+  return (
+    <div className="p-6 max-w-4xl mx-auto">
+      <Card>
+        <CardHeader>
+          <CardTitle>키워드 관리</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {/* Create Form */}
+          <div className="flex gap-2 mb-4">
+            <Input
+              placeholder="새 키워드 (예: 탄핵)"
+              value={newKeyword}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewKeyword(e.target.value)}
+            />
+            <Button onClick={handleCreate} disabled={loading}>
+              {loading ? "생성 중..." : "생성"}
+            </Button>
+          </div>
+          {/* Keyword List */}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>키워드</TableHead>
+                <TableHead>액션</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {keywords.map((kw) => (
+                <TableRow key={kw.id}>
+                  <TableCell>{kw.display_name}</TableCell>
+                  <TableCell>
+                    <Button variant="destructive" size="sm" onClick={() => handleDelete(kw.id)}>
+                      삭제
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <div className="mt-4">
+            <Link to="/admin">
+              <Button variant="outline">← 관리자 대시보드</Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

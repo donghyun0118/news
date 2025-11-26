@@ -1,11 +1,11 @@
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import axios from "axios";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { Link, useNavigate } from "react-router-dom";
+import WeeklyVisitorsChart from "../../components/WeeklyVisitorsChart";
 import { useAdminAuth } from "../../context/AdminAuthContext";
 import type { Topic } from "../../types";
-
-import WeeklyVisitorsChart from "../../components/WeeklyVisitorsChart";
 
 // 타입 정의
 interface Inquiry {
@@ -68,18 +68,16 @@ export default function AdminPage() {
 
   const fetchData = async () => {
     try {
-      // API 엔드포인트들은 예시이며, 실제 백엔드 구현이 필요합니다.
       const [statsRes, topicsRes, inquiriesRes] = await Promise.all([
-        axios.get("/api/admin/stats"), // 가상의 통계 API
-        axios.get("/api/admin/topics/published?limit=5"), // 최신 5개 토픽
-        axios.get("/api/admin/inquiries?limit=5"), // 최신 5개 문의
+        axios.get("/api/admin/stats"),
+        axios.get("/api/admin/topics/published?limit=3"),
+        axios.get("/api/admin/inquiries?limit=3"),
       ]);
       setStats(statsRes.data);
       setRecentTopics(topicsRes.data);
       setRecentInquiries(inquiriesRes.data);
     } catch (error) {
       console.error("대시보드 데이터를 불러오는 중 오류가 발생했습니다.", error);
-      // 일부 API 실패 시에도 UI가 깨지지 않도록 기본값 설정
       setStats(
         stats ?? {
           topics: { published: 0, suggested: 0 },
@@ -95,89 +93,131 @@ export default function AdminPage() {
   }, []);
 
   return (
-    <div className="admin-container">
-      <header className="admin-page-header">
-        <h1>관리자 대시보드</h1>
-        <button
-          type="button"
-          className="logout-btn"
-          onClick={() => {
-            logout();
-            navigate("/admin/login", { replace: true });
-          }}
-        >
-          로그아웃
-        </button>
-      </header>
-
-      {/* 1. 핵심 지표 그리드 */}
-      <section className="admin-section">
-        <div className="metric-grid">
-          <div className="metric-card">
-            <span className="metric-label">총 발행 토픽</span>
-            <span className="metric-value">{stats?.topics.published ?? "..."}</span>
-          </div>
-          <div className="metric-card">
-            <span className="metric-label">답변 대기 문의</span>
-            <span className="metric-value">{stats?.inquiries.pending ?? "..."}</span>
-          </div>
-          <div className="metric-card">
-            <span className="metric-label">총 사용자</span>
-            <span className="metric-value">{stats?.users.total ?? "..."}</span>
-          </div>
-          <div className="metric-card">
-            <span className="metric-label">오늘 가입자</span>
-            <span className="metric-value">{stats?.users.today ?? "..."}</span>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-gray-900">관리자 대시보드</h1>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                logout();
+                navigate("/admin/login", { replace: true });
+              }}
+            >
+              로그아웃
+            </Button>
           </div>
         </div>
-      </section>
+      </header>
 
-      {/* 2. 메인 대시보드 그리드 (최신 활동 & 주요 기능) */}
-      <div className="dashboard-grid">
-        {/* 2.1. 최근 활동 섹션 */}
-        <div className="dashboard-column">
-          <div className="dashboard-card">
-            <div className="dashboard-card-header">
-              <h3>모든 토픽</h3>
-              <Link to="/admin/topics" state={{ initialTab: "ALL" }} className="view-all-link">
-                전체 보기 →
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-medium text-gray-600">총 발행 토픽</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{stats?.topics.published ?? "..."}</div>
+              <p className="text-sm text-gray-500 mt-1">전체 발행된 토픽</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-medium text-gray-600">답변 대기 문의</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-yellow-600">{stats?.inquiries.pending ?? "..."}</div>
+              <p className="text-sm text-gray-500 mt-1">처리 필요</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-medium text-gray-600">총 사용자</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{stats?.users.total ?? "..."}</div>
+              <p className="text-sm text-gray-500 mt-1">전체 가입자</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-medium text-gray-600">오늘 가입자</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-green-600">{stats?.users.today ?? "..."}</div>
+              <p className="text-sm text-gray-500 mt-1">신규 가입</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Recent Activities - Horizontal Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Recent Topics */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>최근 토픽</CardTitle>
+              <Link to="/admin/topics" state={{ initialTab: "ALL" }}>
+                <Button variant="ghost" size="sm">
+                  전체 보기 →
+                </Button>
               </Link>
-            </div>
-            <div className="dashboard-card-body">
+            </CardHeader>
+            <CardContent>
               {recentTopics.length > 0 ? (
-                <ul className="activity-list">
+                <ul className="divide-y divide-gray-200">
                   {recentTopics.map((item) => (
-                    <li key={item.id}>
-                      <Link to={`/admin/topics/${item.id}`}>
-                        <span className="activity-title">{item.display_name}</span>
-                        <span className="activity-meta">
-                          {item.status === "PREPARING" ? "미발행" : `${formatDateTime(item.published_at)} 발행`}
+                    <li key={item.id} className="py-3 hover:bg-gray-50 transition-colors">
+                      <Link to={`/admin/topics/${item.id}`} className="block">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-gray-900">{item.display_name}</span>
+                          <Badge variant={item.status === "PREPARING" ? "warning" : "success"}>
+                            {item.status === "PREPARING" ? "미발행" : "발행됨"}
+                          </Badge>
+                        </div>
+                        <span className="text-sm text-gray-500 mt-1 block">
+                          {item.status === "PREPARING" ? "준비 중" : `${formatDateTime(item.published_at)} 발행`}
                         </span>
                       </Link>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="empty-list-text">토픽이 없습니다.</p>
+                <p className="text-gray-500 text-center py-8">토픽이 없습니다.</p>
               )}
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
-          <div className="dashboard-card">
-            <div className="dashboard-card-header">
-              <h3>문의 내역</h3>
-              <Link to="/admin/inquiries" className="view-all-link">
-                전체 보기 →
+          {/* Recent Inquiries */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>최근 문의</CardTitle>
+              <Link to="/admin/inquiries">
+                <Button variant="ghost" size="sm">
+                  전체 보기 →
+                </Button>
               </Link>
-            </div>
-            <div className="dashboard-card-body">
+            </CardHeader>
+            <CardContent>
               {recentInquiries.length > 0 ? (
-                <ul className="activity-list">
+                <ul className="divide-y divide-gray-200">
                   {recentInquiries.map((item) => (
-                    <li key={item.id}>
-                      <Link to={`/admin/inquiries/${item.id}`}>
-                        <span className="activity-title">{item.subject}</span>
-                        <span className="activity-meta">
+                    <li key={item.id} className="py-3 hover:bg-gray-50 transition-colors">
+                      <Link to={`/admin/inquiries/${item.id}`} className="block">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-gray-900">{item.subject}</span>
+                          <Badge variant={item.status === "PENDING" ? "warning" : "default"}>
+                            {item.status === "PENDING" ? "대기" : "답변완료"}
+                          </Badge>
+                        </div>
+                        <span className="text-sm text-gray-500 mt-1 block">
                           {item.user_nickname} · {formatDateTime(item.created_at)}
                         </span>
                       </Link>
@@ -185,41 +225,57 @@ export default function AdminPage() {
                   ))}
                 </ul>
               ) : (
-                <p className="empty-list-text">최근 문의가 없습니다.</p>
+                <p className="text-gray-500 text-center py-8">최근 문의가 없습니다.</p>
               )}
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* 2.2. 주요 기능 및 통계 섹션 */}
-        <div className="dashboard-column">
-          <div className="dashboard-card">
-            <div className="dashboard-card-header">
-              <h3>주요 기능</h3>
-            </div>
-            <div className="dashboard-card-body quick-actions">
-              <Link to="/admin/topics/new" className="quick-action-btn">
-                + 새 토픽 생성
-              </Link>
-              <Link to="/admin/users" className="quick-action-btn">
-                사용자 관리
-              </Link>
-              <Link to="/admin/system" className="quick-action-btn">
-                시스템 로그
-              </Link>
-              <button type="button" className="quick-action-btn" onClick={handleCopyPrompt}>
-                AI 프롬프트 복사
-              </button>
-            </div>
-          </div>
+        {/* Quick Actions & Chart */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Quick Actions */}
+          <Card>
+            <CardHeader>
+              <CardTitle>주요 기능</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-3">
+                <Link to="/admin/topics/new">
+                  <Button className="w-full">+ 새 토픽 생성</Button>
+                </Link>
+                <Link to="/admin/users">
+                  <Button variant="outline" className="w-full">
+                    사용자 관리
+                  </Button>
+                </Link>
+                <Link to="/admin/keywords">
+                  <Button variant="outline" className="w-full">
+                    키워드 관리
+                  </Button>
+                </Link>
+                <Link to="/admin/system">
+                  <Button variant="outline" className="w-full">
+                    시스템 로그
+                  </Button>
+                </Link>
+                <Button variant="outline" className="w-full" onClick={handleCopyPrompt}>
+                  AI 프롬프트 복사
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
-          <div className="dashboard-card">
-            <div className="dashboard-card-body">
+          {/* Weekly Visitors Chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle>주간 방문자 통계</CardTitle>
+            </CardHeader>
+            <CardContent>
               <WeeklyVisitorsChart />
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

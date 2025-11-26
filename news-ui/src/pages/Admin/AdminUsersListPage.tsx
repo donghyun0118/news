@@ -1,3 +1,4 @@
+import { Badge, Button, Card, CardContent } from "@/components/ui";
 import axios from "axios";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -29,6 +30,19 @@ const getStatusText = (status: User["status"]) => {
       return "탈퇴";
     default:
       return status;
+  }
+};
+
+const getStatusVariant = (status: User["status"]): "default" | "success" | "warning" | "destructive" => {
+  switch (status) {
+    case "ACTIVE":
+      return "success";
+    case "SUSPENDED":
+      return "destructive";
+    case "DELETED":
+      return "default";
+    default:
+      return "default";
   }
 };
 
@@ -66,62 +80,83 @@ export default function AdminUsersListPage() {
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
 
   return (
-    <div className="admin-container">
-      <header className="admin-page-header">
-        <h1>전체 사용자 목록</h1>
-        <Link to="/admin" className="back-link">
-          ← 대시보드로 돌아가기
-        </Link>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-gray-900">전체 사용자 목록</h1>
+            <Link to="/admin">
+              <Button variant="outline">← 대시보드</Button>
+            </Link>
+          </div>
+        </div>
       </header>
 
-      <div className="admin-table-container">
-        {isLoading && <p>로딩 중...</p>}
-        {error && <p className="error-message">{error}</p>}
-        {!isLoading && !error && (
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>닉네임</th>
-                <th>이메일</th>
-                <th>상태</th>
-                <th>경고</th>
-                <th>가입일</th>
-                <th>관리</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.length > 0 ? (
-                users.map((user) => (
-                  <tr key={user.id}>
-                    <td>{user.id}</td>
-                    <td>{user.nickname}</td>
-                    <td>{user.email}</td>
-                    <td>
-                      <span className={`status-badge status-${user.status.toLowerCase()}`}>
-                        {getStatusText(user.status)}
-                      </span>
-                    </td>
-                    <td>{user.warning_count}</td>
-                    <td>{formatDateTime(user.created_at)}</td>
-                    <td>
-                      <Link to={`/admin/users/${user.id}`} className="table-action-btn">
-                        관리
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={7}>가입한 사용자가 없습니다.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
-      </div>
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Card>
+          <CardContent className="p-0">
+            {isLoading && <div className="text-center py-12 text-gray-500">로딩 중...</div>}
+            {error && <div className="text-center py-12 text-red-600">{error}</div>}
+            {!isLoading && !error && (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b">
+                    <tr>
+                      <th className="text-left py-3 px-4 font-medium text-gray-600">ID</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-600">닉네임</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-600">이메일</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-600">상태</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-600">경고</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-600">가입일</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-600">관리</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.length > 0 ? (
+                      users.map((user) => (
+                        <tr key={user.id} className="border-b hover:bg-gray-50 transition-colors">
+                          <td className="py-3 px-4 text-gray-900">{user.id}</td>
+                          <td className="py-3 px-4 font-medium text-gray-900">{user.nickname}</td>
+                          <td className="py-3 px-4 text-gray-600">{user.email}</td>
+                          <td className="py-3 px-4">
+                            <Badge variant={getStatusVariant(user.status)}>{getStatusText(user.status)}</Badge>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={user.warning_count > 0 ? "text-red-600 font-medium" : "text-gray-600"}>
+                              {user.warning_count}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-gray-600">{formatDateTime(user.created_at)}</td>
+                          <td className="py-3 px-4">
+                            <Link to={`/admin/users/${user.id}`}>
+                              <Button variant="ghost" size="sm">
+                                관리
+                              </Button>
+                            </Link>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={7} className="text-center py-12 text-gray-500">
+                          가입한 사용자가 없습니다.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-      <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+        {/* Pagination */}
+        <div className="mt-6">
+          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+        </div>
+      </main>
     </div>
   );
 }
