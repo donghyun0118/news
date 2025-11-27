@@ -1,6 +1,6 @@
 import express, { Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
-import { extractArticlePreview } from "../config/articlePreview";
+import { extractArticlePreview, extractTopicPreview } from "../config/articlePreview";
 import pool from "../config/db";
 import s3 from "../config/s3";
 import { AuthenticatedRequest, authenticateUser } from "../middleware/userAuth";
@@ -59,14 +59,16 @@ router.get("/", async (req: Request, res: Response) => {
 
     const baseUrl = `${req.protocol}://${req.get("host")}`;
 
-    // 각 메시지에 대해 기사 정보 추출
+    // 각 메시지에 대해 기사 및 토픽 정보 추출
     const messagesWithPreviews = await Promise.all(
       (rows as any[]).map(async (msg) => {
         const articlePreview = await extractArticlePreview(msg.content);
+        const topicPreview = await extractTopicPreview(msg.content);
         return {
           ...msg,
           profile_image_url: msg.profile_image_url ? `${baseUrl}${msg.profile_image_url}` : null,
           article_preview: articlePreview,
+          topic_preview: topicPreview,
         };
       })
     );
@@ -120,6 +122,8 @@ router.post("/", authenticateUser, async (req: AuthenticatedRequest, res: Respon
   const userId = req.user?.userId;
   const { content } = req.body;
 
+  const baseUrl = `${req.protocol}://${req.get("host")}`;
+
   if (!content || typeof content !== "string" || content.trim().length === 0) {
     return res.status(400).json({ message: "메시지 내용이 비어있습니다." });
   }
@@ -148,10 +152,20 @@ router.post("/", authenticateUser, async (req: AuthenticatedRequest, res: Respon
     );
     const newMessage = rows[0];
 
-    // Extract article preview from the content
+    // Convert profile_image_url to absolute URL
+    if (newMessage.profile_image_url) {
+      newMessage.profile_image_url = `${baseUrl}${newMessage.profile_image_url}`;
+    }
+
+    // Extract article and topic preview from the content
     const articlePreview = await extractArticlePreview(content.trim());
+    const topicPreview = await extractTopicPreview(content.trim());
+
     if (articlePreview) {
       newMessage.article_preview = articlePreview;
+    }
+    if (topicPreview) {
+      newMessage.topic_preview = topicPreview;
     }
 
     await connection.commit();
