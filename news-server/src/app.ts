@@ -24,6 +24,7 @@ import commentsRouter from "./routes/comments";
 import inquiryRouter from "./routes/inquiry";
 import internalRouter from "./routes/internal";
 import jobsRouter from "./routes/jobs";
+import notificationRouter from "./routes/notification";
 import savedRouter from "./routes/saved";
 import userRouter from "./routes/user";
 
@@ -80,6 +81,7 @@ app.use("/api/inquiry", inquiryRouter);
 app.use("/api", commentsRouter);
 app.use("/api/saved", savedRouter);
 app.use("/api/internal", internalRouter);
+app.use("/api/notifications", notificationRouter);
 app.use("/api", apiRouter); // MUST be before chatRouter to handle /api/topics/:topicId
 app.use("/api/topics/:topicId/chat", chatRouter); // 토픽에 종속된 채팅 내역 조회
 app.use("/api/chat", chatRouter); // 개별 채팅 메시지 관리 (삭제, 신고 등)

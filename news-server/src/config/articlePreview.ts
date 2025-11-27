@@ -19,7 +19,7 @@ export async function getArticleByUrl(url: string): Promise<any | null> {
   try {
     // 1. tn_article에서 먼저 검색 (토픽 큐레이션 기사)
     const [articleRows]: any = await pool.query(
-      `SELECT id, title, source, source_domain, thumbnail_url, published_at, url
+      `SELECT id, title, source, source_domain, thumbnail_url, url
        FROM tn_article 
        WHERE url = ? AND status = 'published'
        LIMIT 1`,
@@ -27,12 +27,17 @@ export async function getArticleByUrl(url: string): Promise<any | null> {
     );
 
     if (articleRows.length > 0) {
-      return articleRows[0];
+      const article = articleRows[0];
+      // 파비콘 URL 추가
+      article.favicon_url = article.source_domain
+        ? `https://www.google.com/s2/favicons?domain=${article.source_domain}&sz=32`
+        : null;
+      return article;
     }
 
     // 2. tn_home_article에서 검색 (홈 화면 기사)
     const [homeArticleRows]: any = await pool.query(
-      `SELECT id, title, source, source_domain, thumbnail_url, published_at, url
+      `SELECT id, title, source, source_domain, thumbnail_url, url
        FROM tn_home_article 
        WHERE url = ?
        LIMIT 1`,
@@ -40,7 +45,12 @@ export async function getArticleByUrl(url: string): Promise<any | null> {
     );
 
     if (homeArticleRows.length > 0) {
-      return homeArticleRows[0];
+      const article = homeArticleRows[0];
+      // 파비콘 URL 추가
+      article.favicon_url = article.source_domain
+        ? `https://www.google.com/s2/favicons?domain=${article.source_domain}&sz=32`
+        : null;
+      return article;
     }
 
     return null;
