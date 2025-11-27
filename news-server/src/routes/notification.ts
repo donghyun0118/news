@@ -25,6 +25,8 @@ const router = express.Router();
  *       - in: query
  *         name: limit
  *         schema: { type: integer, default: 20 }
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: 알림 목록 조회 성공
@@ -79,6 +81,8 @@ router.get("/", authenticateUser, async (req: AuthenticatedRequest, res: Respons
  *     tags: [Notifications]
  *     summary: 읽지 않은 알림 개수 조회
  *     description: 헤더 배지용으로 읽지 않은 알림 개수를 반환합니다.
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: 조회 성공
@@ -110,6 +114,8 @@ router.get("/unread-count", authenticateUser, async (req: AuthenticatedRequest, 
  *         name: id
  *         required: true
  *         schema: { type: integer }
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: 처리 성공
@@ -142,6 +148,8 @@ router.post("/:id/read", authenticateUser, async (req: AuthenticatedRequest, res
  *     tags: [Notifications]
  *     summary: 모든 알림 읽음 처리
  *     description: 사용자의 모든 읽지 않은 알림을 읽음 상태로 변경합니다.
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: 처리 성공
@@ -157,6 +165,47 @@ router.post("/read-all", authenticateUser, async (req: AuthenticatedRequest, res
     res.json({ message: "All notifications marked as read.", updated_count: result.affectedRows });
   } catch (error) {
     console.error("Error marking all notifications as read:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+/**
+ * @swagger
+ * /api/notifications/{id}:
+ *   delete:
+ *     tags: [Notifications]
+ *     summary: 알림 삭제
+ *     description: 특정 알림을 삭제합니다.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: 삭제 성공
+ *       404:
+ *         description: 알림을 찾을 수 없음
+ */
+router.delete("/:id", authenticateUser, async (req: AuthenticatedRequest, res: Response) => {
+  const userId = req.user?.userId;
+  const notificationId = req.params.id;
+
+  try {
+    const [result]: any = await pool.query("DELETE FROM tn_notification WHERE id = ? AND user_id = ?", [
+      notificationId,
+      userId,
+    ]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Notification not found." });
+    }
+
+    res.json({ message: "Notification deleted successfully." });
+  } catch (error) {
+    console.error("Error deleting notification:", error);
     res.status(500).json({ message: "Server error" });
   }
 });

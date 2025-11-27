@@ -11,7 +11,7 @@
  Target Server Version : 80011 (8.0.11-TiDB-v7.5.2-serverless)
  File Encoding         : 65001
 
- Date: 26/11/2025 14:40:37
+ Date: 27/11/2025 14:14:24
 */
 
 SET NAMES utf8mb4;
@@ -60,7 +60,7 @@ CREATE TABLE `tn_chat`  (
   INDEX `ix_chat_user_id`(`user_id` ASC) USING BTREE,
   CONSTRAINT `fk_chat_topic` FOREIGN KEY (`topic_id`) REFERENCES `tn_topic` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT,
   CONSTRAINT `fk_chat_user` FOREIGN KEY (`user_id`) REFERENCES `tn_user` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 1719434 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '토픽별 실시간 채팅 메시지' ROW_FORMAT = Compact;
+) ENGINE = InnoDB AUTO_INCREMENT = 3388790 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '토픽별 실시간 채팅 메시지' ROW_FORMAT = Compact;
 
 -- ----------------------------
 -- Table structure for tn_chat_report_log
@@ -99,7 +99,7 @@ CREATE TABLE `tn_home_article`  (
   `embedding` vector NULL,
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `url`(`url`(255) ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 17220001 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '홈 화면 노출용 기사' ROW_FORMAT = Compact;
+) ENGINE = InnoDB AUTO_INCREMENT = 17370001 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '홈 화면 노출용 기사' ROW_FORMAT = Compact;
 
 -- ----------------------------
 -- Table structure for tn_inquiry
@@ -134,6 +134,22 @@ CREATE TABLE `tn_inquiry_reply`  (
   INDEX `fk_reply_inquiry`(`inquiry_id` ASC) USING BTREE,
   CONSTRAINT `fk_reply_inquiry` FOREIGN KEY (`inquiry_id`) REFERENCES `tn_inquiry` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
 ) ENGINE = InnoDB AUTO_INCREMENT = 120001 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '문의에 대한 관리자 답변' ROW_FORMAT = Compact;
+
+-- ----------------------------
+-- Table structure for tn_notification
+-- ----------------------------
+DROP TABLE IF EXISTS `tn_notification`;
+CREATE TABLE `tn_notification`  (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `user_id` bigint(20) NOT NULL COMMENT '알림을 받을 사용자의 ID',
+  `type` enum('NEW_TOPIC','FRIEND_REQUEST','VOTE_REMINDER','ADMIN_NOTICE') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `message` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '알림 메시지 본문',
+  `related_url` varchar(2048) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '알림 클릭 시 이동할 URL',
+  `is_read` tinyint(1) NOT NULL DEFAULT 0 COMMENT '읽음 여부 (0: 안읽음, 1: 읽음)',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_user_id_created_at`(`user_id` ASC, `created_at` ASC) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Compact;
 
 -- ----------------------------
 -- Table structure for tn_topic
@@ -187,7 +203,7 @@ CREATE TABLE `tn_topic_comment`  (
   CONSTRAINT `fk_topic_comment_topic` FOREIGN KEY (`topic_id`) REFERENCES `tn_topic` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT,
   CONSTRAINT `fk_topic_comment_user` FOREIGN KEY (`user_id`) REFERENCES `tn_user` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT,
   CONSTRAINT `fk_topic_comment_parent` FOREIGN KEY (`parent_comment_id`) REFERENCES `tn_topic_comment` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '토픽별 댓글 및 대댓글' ROW_FORMAT = Compact;
+) ENGINE = InnoDB AUTO_INCREMENT = 30001 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '토픽별 댓글 및 대댓글' ROW_FORMAT = Compact;
 
 -- ----------------------------
 -- Table structure for tn_topic_comment_reaction
@@ -234,7 +250,7 @@ CREATE TABLE `tn_topic_view_log`  (
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`) USING BTREE,
   INDEX `idx_topic_user_time`(`topic_id` ASC, `user_identifier` ASC, `created_at` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 4290001 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '토픽 조회수 중복 방지용 로그' ROW_FORMAT = Compact;
+) ENGINE = InnoDB AUTO_INCREMENT = 4350001 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '토픽 조회수 중복 방지용 로그' ROW_FORMAT = Compact;
 
 -- ----------------------------
 -- Table structure for tn_topic_vote
@@ -251,7 +267,7 @@ CREATE TABLE `tn_topic_vote`  (
   INDEX `fk_vote_user`(`user_id` ASC) USING BTREE,
   CONSTRAINT `fk_vote_topic` FOREIGN KEY (`topic_id`) REFERENCES `tn_topic` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT,
   CONSTRAINT `fk_vote_user` FOREIGN KEY (`user_id`) REFERENCES `tn_user` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 30001 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '사용자 투표 기록' ROW_FORMAT = Compact;
+) ENGINE = InnoDB AUTO_INCREMENT = 60001 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '사용자 투표 기록' ROW_FORMAT = Compact;
 
 -- ----------------------------
 -- Table structure for tn_user
@@ -321,6 +337,6 @@ CREATE TABLE `tn_user_saved_articles`  (
   INDEX `fk_2`(`category_id` ASC) USING BTREE,
   CONSTRAINT `fk_1` FOREIGN KEY (`user_id`) REFERENCES `tn_user` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT,
   CONSTRAINT `fk_2` FOREIGN KEY (`category_id`) REFERENCES `tn_user_saved_article_categories` (`id`) ON DELETE SET NULL ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 930001 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '사용자가 저장한 개별 기사' ROW_FORMAT = Compact;
+) ENGINE = InnoDB AUTO_INCREMENT = 960001 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '사용자가 저장한 개별 기사' ROW_FORMAT = Compact;
 
 SET FOREIGN_KEY_CHECKS = 1;

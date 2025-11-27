@@ -2,7 +2,6 @@ import bcrypt from "bcryptjs";
 import express, { Response } from "express";
 import path from "path";
 import pool from "../config/db";
-import { FAVICON_URLS } from "../config/favicons";
 import { validateChangePassword } from "../middleware/changePasswordValidation";
 import { validateUpdateUser } from "../middleware/updateUserValidation";
 import { AuthenticatedRequest, authenticateUser } from "../middleware/userAuth";
@@ -294,9 +293,8 @@ router.post("/me/delete", authenticateUser, async (req: AuthenticatedRequest, re
 
     // 3. If password is correct, update status to DELETED
     await pool.query("UPDATE tn_user SET status = 'DELETED' WHERE id = ?", [userId]);
-    
-    res.status(200).json({ message: "회원 탈퇴 처리가 완료되었습니다." });
 
+    res.status(200).json({ message: "회원 탈퇴 처리가 완료되었습니다." });
   } catch (error) {
     console.error("Error deleting user account:", error);
     res.status(500).json({ message: "서버 오류가 발생했습니다." });
@@ -332,7 +330,7 @@ router.post("/me/delete", authenticateUser, async (req: AuthenticatedRequest, re
  */
 router.get("/me/notification-settings", authenticateUser, async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user?.userId;
-  const NOTIFICATION_TYPES = ['NEW_TOPIC', 'BREAKING_NEWS', 'EXCLUSIVE_NEWS'];
+  const NOTIFICATION_TYPES = ["NEW_TOPIC", "BREAKING_NEWS", "EXCLUSIVE_NEWS", "VOTE_REMINDER", "ADMIN_NOTICE"];
 
   try {
     const [rows]: any = await pool.query(
@@ -340,9 +338,11 @@ router.get("/me/notification-settings", authenticateUser, async (req: Authentica
       [userId]
     );
 
-    const settingsMap = new Map(rows.map((row: { notification_type: string; is_enabled: number }) => [row.notification_type, !!row.is_enabled]));
+    const settingsMap = new Map(
+      rows.map((row: { notification_type: string; is_enabled: number }) => [row.notification_type, !!row.is_enabled])
+    );
 
-    const fullSettings = NOTIFICATION_TYPES.map(type => ({
+    const fullSettings = NOTIFICATION_TYPES.map((type) => ({
       notification_type: type,
       is_enabled: settingsMap.has(type) ? settingsMap.get(type) : true, // DB에 설정 없으면 기본값 true
     }));
@@ -358,7 +358,7 @@ router.get("/me/notification-settings", authenticateUser, async (req: Authentica
  * @swagger
  * /api/user/me/notification-settings:
  *   put:
- *     tags: 
+ *     tags:
  *       - User
  *     summary: "내 알림 설정 저장"
  *     description: "현재 로그인한 사용자의 알림 설정을 업데이트합니다. 변경할 설정만 배열에 담아 보냅니다."
@@ -404,15 +404,14 @@ router.put("/me/notification-settings", authenticateUser, async (req: Authentica
     `;
 
     for (const setting of settings) {
-      if (typeof setting.notification_type !== 'string' || typeof setting.is_enabled !== 'boolean') {
-        throw new Error('Invalid setting format');
+      if (typeof setting.notification_type !== "string" || typeof setting.is_enabled !== "boolean") {
+        throw new Error("Invalid setting format");
       }
       await connection.query(query, [userId, setting.notification_type, setting.is_enabled]);
     }
 
     await connection.commit();
     res.status(200).json({ message: "Notification settings updated successfully." });
-
   } catch (error) {
     await connection.rollback();
     console.error("Error updating notification settings:", error);
@@ -421,7 +420,5 @@ router.put("/me/notification-settings", authenticateUser, async (req: Authentica
     connection.release();
   }
 });
-
-
 
 export default router;

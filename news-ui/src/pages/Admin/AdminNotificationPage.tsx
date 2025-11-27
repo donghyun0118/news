@@ -8,33 +8,51 @@ import { useNavigate } from "react-router-dom";
 const NOTIFICATION_TEMPLATES = [
   {
     name: "🔥 속보 알림",
-    message: "🚨 속보: [제목]\n[간단한 내용 요약]\n지금 바로 확인하세요!",
-    url: "/topics/[토픽ID]",
+    type: "BREAKING_NEWS",
+    message: "[제목]\n[출처]\n지금 바로 확인하세요!",
+    url: "/article/[토픽ID]",
+  },
+  {
+    name: "⚡ 단독 보도",
+    type: "EXCLUSIVE_NEWS",
+    message: "[제목]\n[출처]\n지금 바로 확인하세요!",
+    url: "/article/[토픽ID]",
   },
   {
     name: "🎯 ROUND2 시작",
+    type: "NEW_TOPIC",
     message:
       "💬 '[토픽명]' 토픽의 ROUND2가 시작되었습니다!\n\n이제 좌우 입장에 대해 의견을 나누고 투표해보세요.\n토론 기간: [종료일시]까지",
-    url: "/topics/[토픽ID]",
+    url: "/debate/[토픽ID]",
   },
   {
-    name: "서버 점검 안내",
+    name: "⏰ 투표 독려",
+    type: "VOTE_REMINDER",
+    message: "⏰ '[토픽명]' 토픽 투표 마감 [시간]시간 전입니다.\n아직 참여하지 않으셨다면 지금 투표하세요!",
+    url: "/debate/[토픽ID]",
+  },
+  {
+    name: "🔧 서버 점검 안내",
+    type: "ADMIN_NOTICE",
     message:
       "🔧 서버 점검이 예정되어 있습니다.\n일시: [날짜 및 시간 입력]\n예상 소요 시간: [시간 입력]\n불편을 드려 죄송합니다.",
     url: "",
   },
   {
-    name: "신규 기능 안내",
+    name: "✨ 신규 기능 안내",
+    type: "ADMIN_NOTICE",
     message: "✨ 새로운 기능이 추가되었습니다!\n[기능 설명]\n지금 바로 확인해보세요.",
     url: "",
   },
   {
-    name: "중요 공지사항",
+    name: "📢 중요 공지사항",
+    type: "ADMIN_NOTICE",
     message: "📢 중요한 공지사항이 있습니다.\n[공지 내용]",
     url: "",
   },
   {
-    name: "이벤트 안내",
+    name: "🎉 이벤트 안내",
+    type: "ADMIN_NOTICE",
     message: "🎉 이벤트가 진행 중입니다!\n[이벤트 내용]\n참여하고 혜택을 받아보세요.",
     url: "",
   },
@@ -45,11 +63,13 @@ export default function AdminNotificationPage() {
   const [message, setMessage] = useState("");
   const [relatedUrl, setRelatedUrl] = useState("");
   const [userId, setUserId] = useState(""); // Optional: specific user ID
+  const [type, setType] = useState("ADMIN_NOTICE");
   const [isSending, setIsSending] = useState(false);
 
   const applyTemplate = (template: (typeof NOTIFICATION_TEMPLATES)[0]) => {
     setMessage(template.message);
     setRelatedUrl(template.url);
+    setType(template.type);
   };
 
   const handleSend = async () => {
@@ -66,17 +86,23 @@ export default function AdminNotificationPage() {
         message: string;
         related_url?: string;
         user_id?: number;
+        type: string;
       }
-      const payload: NotificationPayload = { message, related_url: relatedUrl || undefined };
+      const payload: NotificationPayload = {
+        message,
+        related_url: relatedUrl || undefined,
+        type,
+      };
       if (userId.trim()) {
         payload.user_id = parseInt(userId, 10);
       }
 
       const res = await axios.post("/api/admin/notifications", payload);
-      toast.success(`알림이 성공적으로 발송되었습니다. (${res.data.sent_count}명)`);
+      toast.success(`알림이 성공적으로 발송되었습니다. (${res.data.sent_count || "전체"}명)`);
       setMessage("");
       setRelatedUrl("");
       setUserId("");
+      setType("ADMIN_NOTICE");
     } catch (error) {
       console.error("Failed to send notification:", error);
       toast.error("알림 발송에 실패했습니다.");
@@ -131,6 +157,17 @@ export default function AdminNotificationPage() {
             </div>
 
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">알림 유형</label>
+              <select className="w-full p-2 border rounded-md" value={type} onChange={(e) => setType(e.target.value)}>
+                <option value="ADMIN_NOTICE">일반 공지 (ADMIN_NOTICE)</option>
+                <option value="BREAKING_NEWS">속보 (BREAKING_NEWS)</option>
+                <option value="EXCLUSIVE_NEWS">단독 (EXCLUSIVE_NEWS)</option>
+                <option value="NEW_TOPIC">새 토픽 (NEW_TOPIC)</option>
+                <option value="VOTE_REMINDER">투표 독려 (VOTE_REMINDER)</option>
+              </select>
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 메시지 내용 <span className="text-red-500">*</span>
               </label>
@@ -144,7 +181,11 @@ export default function AdminNotificationPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">관련 URL (선택사항)</label>
-              <Input placeholder="예: /topics/123" value={relatedUrl} onChange={(e) => setRelatedUrl(e.target.value)} />
+              <Input
+                placeholder="예: /debate/420076"
+                value={relatedUrl}
+                onChange={(e) => setRelatedUrl(e.target.value)}
+              />
             </div>
 
             <div className="pt-4">

@@ -6,8 +6,9 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import pool from "../config/db";
-import { createNotificationMessage, NotificationType } from "../config/notificationTemplates";
+import { NotificationType } from "../config/notificationTemplates";
 import { authenticateAdmin, handleAdminLogin } from "../middleware/auth";
+import { NotificationService } from "../services/notificationService";
 
 const router = express.Router();
 
@@ -1957,32 +1958,34 @@ router.patch("/topics/:topicId/status", async (req: Request, res: Response) => {
       );
 
       // 토픽 발행 성공 시 모든 사용자에게 알림 발송
-      if (result.affectedRows > 0) {
-        try {
-          // 1. 모든 사용자 ID 조회
-          const [users]: any = await connection.query("SELECT id FROM tn_user");
+      try {
+        const notificationService = NotificationService.getInstance();
+        const io = req.app.get("io");
 
-          if (users.length > 0) {
-            // 2. 알림 메시지 생성
-            const notification = createNotificationMessage(NotificationType.NEW_TOPIC, {
+        // vote_end_at을 "YYYY.MM.DD" 형식으로 포맷
+        const endDate = new Date(vote_end_at)
+          .toLocaleDateString("ko-KR", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          })
+          .replace(/\. /g, ".")
+          .replace(/\.$/, "");
+
+        // 비동기로 처리하여 응답 지연 방지
+        notificationService
+          .sendToAllUsers(
+            NotificationType.NEW_TOPIC,
+            {
               topicName: displayName,
               topicId,
-            });
-
-            // 3. Bulk Insert 쿼리 생성
-            const values = users.map((user: any) => [user.id, "NEW_TOPIC", notification.message, notification.url, 0]);
-
-            await connection.query(
-              "INSERT INTO tn_notification (user_id, type, message, related_url, is_read) VALUES ?",
-              [values]
-            );
-
-            console.log(`[Notification] Sent NEW_TOPIC notification to ${users.length} users.`);
-          }
-        } catch (notifyError) {
-          console.error("[Notification] Failed to send notifications:", notifyError);
-          // 알림 발송 실패가 토픽 발행을 취소시키지는 않도록 함 (선택 사항)
-        }
+              endDate,
+            },
+            io
+          )
+          .catch((err) => console.error("Failed to send NEW_TOPIC notification:", err));
+      } catch (notifyError) {
+        console.error("[Notification] Failed to initiate notification:", notifyError);
       }
     } else if (status === "REJECTED") {
       [result] = await connection.query(
@@ -2239,45 +2242,45 @@ router.delete("/keywords/:id", async (req: Request, res: Response) => {
  *         description: "알림 발송 성공"
  */
 router.post("/notifications", async (req: Request, res: Response) => {
-  const { user_id, message, related_url } = req.body;
+  const { user_id, message, related_url, type } = req.body;
 
   if (!message) {
     return res.status(400).json({ message: "Message is required." });
   }
 
-  const connection = await pool.getConnection();
+  // 기본값은 ADMIN_NOTICE, 입력받은 type이 있으면 사용 (BREAKING_NEWS 등)
+  const notificationType =
+    type && Object.values(NotificationType).includes(type) ? type : NotificationType.ADMIN_NOTICE;
+
   try {
-    let targetUsers = [];
+    const notificationService = NotificationService.getInstance();
+    const io = req.app.get("io");
+
+    // 템플릿 파라미터 구성
+    // ADMIN_NOTICE, BREAKING_NEWS, EXCLUSIVE_NEWS 모두 message와 url(옵션)을 받음
+    const params = { message, url: related_url };
 
     if (user_id) {
       // 특정 사용자에게 발송
-      targetUsers.push({ id: user_id });
+      await notificationService.sendToUser(user_id, notificationType, params, io);
+      res.status(201).json({
+        message: "Notification sent successfully to user.",
+        sent_count: 1,
+      });
     } else {
       // 전체 사용자에게 발송
-      const [users]: any = await connection.query("SELECT id FROM tn_user");
-      targetUsers = users;
+      // sendToAllUsers는 내부적으로 비동기 처리하지 않고 await하므로
+      // 대량 발송 시 응답이 늦어질 수 있음. 필요 시 비동기로 전환 고려.
+      // 여기서는 확실한 성공 여부를 위해 await 사용.
+      await notificationService.sendToAllUsers(notificationType, params, io);
+
+      res.status(201).json({
+        message: "Notifications sent successfully to all users.",
+      });
     }
-
-    if (targetUsers.length === 0) {
-      return res.status(404).json({ message: "No users found to send notification." });
-    }
-
-    // Bulk Insert
-    const values = targetUsers.map((user: any) => [user.id, "ADMIN_NOTICE", message, related_url || null, 0]);
-
-    await connection.query("INSERT INTO tn_notification (user_id, type, message, related_url, is_read) VALUES ?", [
-      values,
-    ]);
-
-    res.status(201).json({
-      message: "Notifications sent successfully.",
-      sent_count: targetUsers.length,
-    });
   } catch (error) {
     console.error("Error sending admin notifications:", error);
     res.status(500).json({ message: "Server error" });
-  } finally {
-    connection.release();
   }
 });
 

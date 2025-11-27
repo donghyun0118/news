@@ -68,7 +68,7 @@ DB_CONFIG = {
     "database": os.getenv("DB_DATABASE"),
 }
 
-INTERNAL_API_URL = os.getenv("INTERNAL_NOTIFICATION_API_URL", "http://localhost:3000/api/internal/send-notification")
+INTERNAL_API_URL = os.getenv("INTERNAL_NOTIFICATION_API_URL", "http://127.0.0.1:4001/api/internal/send-notification")
 
 if os.getenv("DB_SSL_ENABLED") == 'true':
     is_production = os.getenv('NODE_ENV') == 'production'
@@ -374,6 +374,9 @@ def send_notification(notification_type: str, article: Dict[str, Any]):
             "title": article.get('title'),
             "url": article.get('url'),
             "source": article.get('source'),
+            "source_domain": article.get('source_domain'),
+            "thumbnail_url": article.get('thumbnail_url'),
+            "published_at": article.get('published_at').isoformat() if article.get('published_at') else None,
         }
     }
     try:
@@ -381,7 +384,7 @@ def send_notification(notification_type: str, article: Dict[str, Any]):
         response.raise_for_status() # 2xx 응답이 아니면 에러 발생
         logging.info(f"[Notification] Sent {notification_type} notification for article: {article.get('title')}")
     except requests.RequestException as e:
-        logging.error(f"[Notification] Failed to send notification: {e}", file=sys.stderr)
+        logging.error(f"[Notification] Failed to send notification: {e}")
 
 # --- 메인 로직 ---
 def main():
@@ -426,13 +429,13 @@ def main():
         logging.info(f"Step 5: Found {len(new_articles)} new articles to save and notify.")
 
         if new_articles:
-            # 알림 발송 로직 (DB 저장 전) - 임시 주석 처리
-            # for article in new_articles:
-            #     title = article.get('title', '')
-            #     if '[속보]' in title:
-            #         send_notification('BREAKING_NEWS', article)
-            #     elif '[단독]' in title:
-            #         send_notification('EXCLUSIVE_NEWS', article)
+            # 알림 발송 로직 (DB 저장 전)
+            for article in new_articles:
+                title = article.get('title', '')
+                if '[속보]' in title:
+                    send_notification('BREAKING_NEWS', article)
+                elif '[단독]' in title:
+                    send_notification('EXCLUSIVE_NEWS', article)
 
             # DB 저장 로직
             insert_query = "INSERT INTO tn_home_article (source, source_domain, side, category, title, url, published_at, thumbnail_url, description) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"

@@ -1,6 +1,6 @@
 import express, { Request, Response } from "express";
 import { RowDataPacket } from "mysql2";
-import pool from "../config/db";
+import { NotificationService } from "../services/notificationService";
 
 const router = express.Router();
 
@@ -46,40 +46,26 @@ router.post("/send-notification", async (req: Request, res: Response) => {
   res.status(202).json({ message: "Notification dispatch initiated." });
 
   // --- 백그라운드 알림 발송 로직 ---
-  const io = req.app.get('io');
-  const userSocketMap = req.app.get('userSocketMap');
-
-  if (!io || !userSocketMap) {
-    console.error("Socket.IO is not initialized.");
-    return;
-  }
+  const io = req.app.get("io");
+  // NotificationService 내부에서 io를 사용하여 소켓 전송 및 DB 저장을 모두 처리함
 
   try {
-    const [usersToNotify] = await pool.query<UserToNotify[]>(
-      `
-      SELECT u.id FROM tn_user u
-      LEFT JOIN tn_user_notification_settings s 
-        ON u.id = s.user_id AND s.notification_type = ?
-      WHERE s.is_enabled IS NULL OR s.is_enabled = 1
-      `,
-      [notification_type]
-    );
+    const notificationService = NotificationService.getInstance();
 
-    const notification = {
-      type: notification_type,
-      data: data,
+    // data 객체를 템플릿 파라미터로 그대로 전달
+    // BREAKING_NEWS, EXCLUSIVE_NEWS 템플릿은 { title, source, ... } 형태를 기대함
+    const params = {
+      title: data.title,
+      source: data.source,
+      source_domain: data.source_domain,
+      thumbnail_url: data.thumbnail_url,
+      published_at: data.published_at,
+      url: data.url,
     };
 
-    let sentCount = 0;
-    for (const user of usersToNotify) {
-      const socketId = userSocketMap.get(user.id);
-      if (socketId) {
-        io.to(socketId).emit('new_notification', notification);
-        sentCount++;
-      }
-    }
-    console.log(`[Notification] Sent ${notification_type} notification to ${sentCount} user(s).`);
-
+    // sendToAllUsers는 내부적으로 설정(tn_user_notification_settings)을 확인하여
+    // 수신 동의한 사용자에게만 DB 저장 및 소켓 전송을 수행함
+    await notificationService.sendToAllUsers(notification_type, params, io);
   } catch (error) {
     console.error(`[Notification] Failed to send notifications for type ${notification_type}:`, error);
   }

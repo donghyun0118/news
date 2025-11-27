@@ -10,6 +10,8 @@ export enum NotificationType {
   FRIEND_REQUEST = "FRIEND_REQUEST",
   VOTE_REMINDER = "VOTE_REMINDER",
   ADMIN_NOTICE = "ADMIN_NOTICE",
+  BREAKING_NEWS = "BREAKING_NEWS",
+  EXCLUSIVE_NEWS = "EXCLUSIVE_NEWS",
 }
 
 interface NotificationTemplate {
@@ -24,9 +26,15 @@ export const NotificationTemplates: Record<NotificationType, NotificationTemplat
    * @param topicName - 토픽 이름
    */
   [NotificationType.NEW_TOPIC]: {
-    getMessage: ({ topicName }: { topicName: string }) =>
-      `🎯 새로운 토픽 '${topicName}'이(가) 시작되었습니다! 지금 참여해보세요.`,
-    getUrl: ({ topicId }: { topicId: number }) => `/topics/${topicId}`,
+    getMessage: (params: any) => {
+      if (params.message) return params.message;
+      const endDate = params.endDate || "[종료일시]";
+      return `💬 '[${params.topicName}]' 토픽의 ROUND2가 시작되었습니다!\n\n이제 좌우 입장에 대해 의견을 나누고 투표해보세요.\n토론 기간: ${endDate}까지`;
+    },
+    getUrl: (params: any) => {
+      if (params.url) return params.url;
+      return `/debate/${params.topicId}`;
+    },
   },
 
   /**
@@ -46,9 +54,40 @@ export const NotificationTemplates: Record<NotificationType, NotificationTemplat
    * @param hoursLeft - 남은 시간 (시간 단위)
    */
   [NotificationType.VOTE_REMINDER]: {
-    getMessage: ({ topicName, hoursLeft }: { topicName: string; hoursLeft: number }) =>
-      `⏰ '${topicName}' 토픽 투표 마감 ${hoursLeft}시간 전입니다. 아직 참여하지 않으셨다면 지금 투표하세요!`,
-    getUrl: ({ topicId }: { topicId: number }) => `/topics/${topicId}`,
+    getMessage: (params: any) => {
+      if (params.message) return params.message;
+      return `⏰ '[${params.topicName}]' 토픽 투표 마감 ${params.hoursLeft}시간 전입니다.\n아직 참여하지 않으셨다면 지금 투표하세요!`;
+    },
+    getUrl: (params: any) => {
+      if (params.url) return params.url;
+      return `/debate/${params.topicId}`;
+    },
+  },
+
+  /**
+   * 속보 알림
+   */
+  [NotificationType.BREAKING_NEWS]: {
+    getMessage: (params: any) => {
+      if (params.message) return params.message;
+      const title = params.title || "[제목]";
+      const source = params.source || "[출처]";
+      return `🚨 속보\n\n${title}\n\n출처: ${source}`;
+    },
+    getUrl: ({ url }: { url?: string }) => url || null,
+  },
+
+  /**
+   * 단독 보도 알림
+   */
+  [NotificationType.EXCLUSIVE_NEWS]: {
+    getMessage: (params: any) => {
+      if (params.message) return params.message;
+      const title = params.title || "[제목]";
+      const source = params.source || "[출처]";
+      return `🔥 단독 보도\n\n${title}\n\n출처: ${source}`;
+    },
+    getUrl: ({ url }: { url?: string }) => url || null,
   },
 
   /**
