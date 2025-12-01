@@ -27,6 +27,14 @@ async function bootstrap() {
     .addTag('Saved Articles', '저장된 기사 관리 API')
     .addTag('Jobs', '스케줄러 관리 API')
     .addTag('Inquiries', '문의 관리 API')
+    .addTag('Notifications', '사용자 알림 관리 API')
+    .addTag('Chats', '토픽 채팅 메시지 관리 API')
+    .addTag('Admin', '관리자 공통 API')
+    .addTag('Admin Users', '관리자 사용자 관리 API')
+    .addTag('Admin Topics', '관리자 토픽 관리 API')
+    .addTag('Admin Articles', '관리자 기사 관리 API')
+    .addTag('Admin Inquiries', '관리자 문의 관리 API')
+    .addTag('Admin Keywords', '관리자 키워드 관리 API')
     .addBearerAuth(
       {
         type: 'http',

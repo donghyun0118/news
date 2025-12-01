@@ -1,11 +1,10 @@
 ﻿import React from "react";
 import ReactDOM from "react-dom/client";
 import { Toaster } from "react-hot-toast";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom";
 
 import RequireAdminAuth from "./components/RequireAdminAuth";
 import { AdminAuthProvider } from "./context/AdminAuthContext";
-import { UserAuthProvider } from "./context/UserAuthContext";
 import "./index.css";
 import AdminInquiriesListPage from "./pages/Admin/AdminInquiriesListPage";
 import AdminInquiryDetailPage from "./pages/Admin/AdminInquiryDetailPage";
@@ -21,19 +20,9 @@ import AdminTopicsListPage from "./pages/Admin/AdminTopicsListPage";
 import AdminTopicVotesPage from "./pages/Admin/AdminTopicVotesPage";
 import AdminUserDetailPage from "./pages/Admin/AdminUserDetailPage";
 import AdminUsersListPage from "./pages/Admin/AdminUsersListPage";
-import HomePage from "./pages/Public/HomePage";
-import LoginPage from "./pages/Public/LoginPage";
-import MyPage from "./pages/Public/MyPage";
-import SignupPage from "./pages/Public/SignupPage";
-import TopicDetailPage from "./pages/Public/TopicDetailPage";
 
 const router = createBrowserRouter([
-  { path: "/", element: <HomePage /> },
-
-  { path: "/topics/:topicId", element: <TopicDetailPage /> },
-  { path: "/signup", element: <SignupPage /> },
-  { path: "/login", element: <LoginPage /> },
-  { path: "/mypage", element: <MyPage /> },
+  { path: "/", element: <Navigate to="/admin/login" replace /> },
   { path: "/admin/login", element: <AdminLoginPage /> },
   {
     path: "/admin/inquiries",
@@ -144,10 +133,8 @@ const router = createBrowserRouter([
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <AdminAuthProvider>
-      <UserAuthProvider>
-        <RouterProvider router={router} />
-        <Toaster position="top-right" toastOptions={{ duration: 3500 }} />
-      </UserAuthProvider>
+      <RouterProvider router={router} />
+      <Toaster position="top-right" toastOptions={{ duration: 3500 }} />
     </AdminAuthProvider>
   </React.StrictMode>
 );

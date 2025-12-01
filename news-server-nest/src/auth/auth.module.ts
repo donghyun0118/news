@@ -7,6 +7,7 @@ import { DatabaseModule } from '../database/database.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
+import { WsAuthGuard } from './ws.guard';
 import { OptionalJwtAuthGuard } from './optional-jwt.guard';
 
 @Module({
@@ -44,7 +45,7 @@ import { OptionalJwtAuthGuard } from './optional-jwt.guard';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, OptionalJwtAuthGuard],
-  exports: [AuthService, OptionalJwtAuthGuard],
+  providers: [AuthService, JwtStrategy, OptionalJwtAuthGuard, WsAuthGuard],
+  exports: [AuthService, OptionalJwtAuthGuard, WsAuthGuard],
 })
 export class AuthModule {}

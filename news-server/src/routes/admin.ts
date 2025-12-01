@@ -1167,6 +1167,98 @@ router.get("/topics/:topicId", async (req: Request, res: Response) => {
 
 /**
  * @swagger
+ * /api/admin/topics/{topicId}/votes:
+ *   get:
+ *     tags: [Admin]
+ *     summary: 토픽 투표 현황 조회
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: topicId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: 투표 현황 (통계 및 투표자 목록)
+ */
+router.get("/topics/:topicId/votes", async (req: Request, res: Response) => {
+  const { topicId } = req.params;
+
+  try {
+    // Get topic details
+    const [topicRows]: any = await pool.query(
+      `SELECT id, display_name, vote_start_at, vote_end_at, status, stance_left, stance_right 
+       FROM tn_topic WHERE id = ?`,
+      [topicId]
+    );
+
+    if (topicRows.length === 0) {
+      return res.status(404).json({ message: "Topic not found." });
+    }
+
+    const topic = topicRows[0];
+
+    // Get vote statistics
+    const [leftVotes]: any = await pool.query(
+      "SELECT COUNT(*) as count FROM tn_topic_vote WHERE topic_id = ? AND side = 'LEFT'",
+      [topicId]
+    );
+
+    const [rightVotes]: any = await pool.query(
+      "SELECT COUNT(*) as count FROM tn_topic_vote WHERE topic_id = ? AND side = 'RIGHT'",
+      [topicId]
+    );
+
+    const leftCount = leftVotes[0].count;
+    const rightCount = rightVotes[0].count;
+    const totalVotes = leftCount + rightCount;
+
+    const leftPercentage = totalVotes > 0 ? Math.round((leftCount / totalVotes) * 100) : 0;
+    const rightPercentage = totalVotes > 0 ? 100 - leftPercentage : 0;
+
+    // Get voters with user information
+    const [voters]: any = await pool.query(
+      `SELECT tv.id, tv.side, tv.created_at, tv.user_id,
+              u.nickname, u.email
+       FROM tn_topic_vote tv
+       JOIN tn_user u ON tv.user_id = u.id
+       WHERE tv.topic_id = ?
+       ORDER BY tv.created_at DESC`,
+      [topicId]
+    );
+
+    const formattedVoters = voters.map((v: any) => ({
+      id: v.id,
+      side: v.side,
+      created_at: v.created_at,
+      user: {
+        id: v.user_id,
+        nickname: v.nickname,
+        email: v.email,
+      },
+    }));
+
+    res.json({
+      topic,
+      statistics: {
+        total_votes: totalVotes,
+        left_votes: leftCount,
+        right_votes: rightCount,
+        left_percentage: leftPercentage,
+        right_percentage: rightPercentage,
+      },
+      voters: formattedVoters,
+    });
+  } catch (error) {
+    console.error(`Error fetching vote statistics for topic ${topicId}:`, error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+/**
+ * @swagger
  * /api/admin/topics/{topicId}/articles:
  *   get:
  *     tags: [Admin]

@@ -11,7 +11,7 @@
  Target Server Version : 80011 (8.0.11-TiDB-v7.5.2-serverless)
  File Encoding         : 65001
 
- Date: 28/11/2025 09:34:42
+ Date: 01/12/2025 14:52:04
 */
 
 SET NAMES utf8mb4;
@@ -60,7 +60,7 @@ CREATE TABLE `tn_chat`  (
   INDEX `ix_chat_user_id`(`user_id` ASC) USING BTREE,
   CONSTRAINT `fk_chat_topic` FOREIGN KEY (`topic_id`) REFERENCES `tn_topic` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT,
   CONSTRAINT `fk_chat_user` FOREIGN KEY (`user_id`) REFERENCES `tn_user` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 3418790 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '토픽별 실시간 채팅 메시지' ROW_FORMAT = Compact;
+) ENGINE = InnoDB AUTO_INCREMENT = 3886710 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '토픽별 실시간 채팅 메시지' ROW_FORMAT = Compact;
 
 -- ----------------------------
 -- Table structure for tn_chat_report_log
@@ -99,7 +99,7 @@ CREATE TABLE `tn_home_article`  (
   `embedding` vector NULL,
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `url`(`url`(255) ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 17430001 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '홈 화면 노출용 기사' ROW_FORMAT = Compact;
+) ENGINE = InnoDB AUTO_INCREMENT = 17580001 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '홈 화면 노출용 기사' ROW_FORMAT = Compact;
 
 -- ----------------------------
 -- Table structure for tn_inquiry
@@ -332,7 +332,7 @@ CREATE TABLE `tn_user_saved_article_categories`  (
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uq_user_category`(`user_id` ASC, `name` ASC) USING BTREE,
   CONSTRAINT `fk_1` FOREIGN KEY (`user_id`) REFERENCES `tn_user` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 510001 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '사용자가 생성한 저장된 기사 카테고리' ROW_FORMAT = Compact;
+) ENGINE = InnoDB AUTO_INCREMENT = 540001 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '사용자가 생성한 저장된 기사 카테고리' ROW_FORMAT = Compact;
 
 -- ----------------------------
 -- Table structure for tn_user_saved_articles
@@ -349,6 +349,21 @@ CREATE TABLE `tn_user_saved_articles`  (
   INDEX `fk_2`(`category_id` ASC) USING BTREE,
   CONSTRAINT `fk_1` FOREIGN KEY (`user_id`) REFERENCES `tn_user` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT,
   CONSTRAINT `fk_2` FOREIGN KEY (`category_id`) REFERENCES `tn_user_saved_article_categories` (`id`) ON DELETE SET NULL ON UPDATE RESTRICT
-) ENGINE = InnoDB AUTO_INCREMENT = 990001 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '사용자가 저장한 개별 기사' ROW_FORMAT = Compact;
+) ENGINE = InnoDB AUTO_INCREMENT = 1020001 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin COMMENT = '사용자가 저장한 개별 기사' ROW_FORMAT = Compact;
+
+-- ----------------------------
+-- Table structure for tn_visitor_log
+-- ----------------------------
+DROP TABLE IF EXISTS `tn_visitor_log`;
+CREATE TABLE `tn_visitor_log`  (
+  `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_identifier` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'IP address or User ID',
+  `user_agent` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL,
+  `path` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`) USING BTREE,
+  INDEX `idx_created_at`(`created_at` ASC) USING BTREE,
+  INDEX `idx_user_date`(`user_identifier` ASC, `created_at` ASC) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 6445237 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = Compact;
 
 SET FOREIGN_KEY_CHECKS = 1;
