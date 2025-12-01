@@ -1,6 +1,6 @@
 import express from "express";
 import pool from "../config/db";
-import { authenticateUser, AuthenticatedRequest } from "../middleware/userAuth";
+import { AuthenticatedRequest, authenticateUser } from "../middleware/userAuth";
 
 const router = express.Router();
 
@@ -41,7 +41,7 @@ router.post("/categories", async (req: AuthenticatedRequest, res) => {
   const userId = req.user?.userId;
   const { name } = req.body;
 
-  if (!name || typeof name !== 'string' || name.trim().length === 0) {
+  if (!name || typeof name !== "string" || name.trim().length === 0) {
     return res.status(400).json({ message: "카테고리 이름을 입력해주세요." });
   }
 
@@ -52,7 +52,7 @@ router.post("/categories", async (req: AuthenticatedRequest, res) => {
     );
     res.status(201).json({ id: result.insertId, name: name.trim() });
   } catch (error: any) {
-    if (error.code === 'ER_DUP_ENTRY') {
+    if (error.code === "ER_DUP_ENTRY") {
       return res.status(409).json({ message: "이미 존재하는 카테고리 이름입니다." });
     }
     console.error("Error creating category:", error);
@@ -122,19 +122,27 @@ router.get("/categories", async (req: AuthenticatedRequest, res) => {
 router.get("/articles", async (req: AuthenticatedRequest, res) => {
   const userId = req.user?.userId;
   const { categoryId } = req.query;
-  const limit = parseInt(req.query.limit as string || '25', 10);
-  const offset = parseInt(req.query.offset as string || '0', 10);
+  const limit = parseInt((req.query.limit as string) || "25", 10);
+  const offset = parseInt((req.query.offset as string) || "0", 10);
 
   try {
     // --- Main Query for paginated articles ---
     let articlesQueryStr = `
       SELECT 
-        s.id as saved_article_id, s.category_id, s.created_at as saved_at,
-        a.id as article_id, a.title, a.url, a.thumbnail_url, a.source, a.source_domain, a.published_at
+        s.id as saved_article_id, 
+        s.category_id, 
+        s.created_at as saved_at,
+        h.id as article_id,
+        h.title,
+        h.url,
+        h.thumbnail_url,
+        h.source,
+        h.source_domain,
+        h.published_at
       FROM 
         tn_user_saved_articles s
       JOIN 
-        tn_article a ON s.article_id = a.id
+        tn_home_article h ON s.article_id = h.id
       WHERE 
         s.user_id = ?
     `;
@@ -152,8 +160,8 @@ router.get("/articles", async (req: AuthenticatedRequest, res) => {
     let countQueryStr = "SELECT COUNT(*) as totalCount FROM tn_user_saved_articles WHERE user_id = ?";
     const countParams: (string | number)[] = [userId!];
     if (categoryId) {
-        countQueryStr += " AND category_id = ?";
-        countParams.push(categoryId as string);
+      countQueryStr += " AND category_id = ?";
+      countParams.push(categoryId as string);
     }
     const countQuery = pool.query(countQueryStr, countParams);
 
@@ -168,18 +176,17 @@ router.get("/articles", async (req: AuthenticatedRequest, res) => {
       [userId]
     );
 
-    const [
-      [articleRows],
-      [countResult],
-      [byCategoryResult]
-    ] = await Promise.all([articlesQuery, countQuery, byCategoryQuery]);
+    const [[articleRows], [countResult], [byCategoryResult]] = await Promise.all([
+      articlesQuery,
+      countQuery,
+      byCategoryQuery,
+    ]);
 
     res.json({
       articles: articleRows,
       totalCount: (countResult as any)[0].totalCount,
-      byCategory: byCategoryResult
+      byCategory: byCategoryResult,
     });
-
   } catch (error) {
     console.error("Error fetching saved articles:", error);
     res.status(500).json({ message: "서버 오류가 발생했습니다." });
@@ -256,7 +263,6 @@ router.put("/articles/:savedArticleId", async (req: AuthenticatedRequest, res) =
 
     await connection.commit();
     res.status(200).json({ message: "카테고리가 업데이트되었습니다." });
-
   } catch (error) {
     await connection.rollback();
     console.error("Error updating article category:", error);
@@ -308,7 +314,7 @@ router.put("/categories/:categoryId", async (req: AuthenticatedRequest, res) => 
   const { categoryId } = req.params;
   const { name } = req.body;
 
-  if (!name || typeof name !== 'string' || name.trim().length === 0) {
+  if (!name || typeof name !== "string" || name.trim().length === 0) {
     return res.status(400).json({ message: "카테고리 이름을 입력해주세요." });
   }
 
@@ -323,9 +329,8 @@ router.put("/categories/:categoryId", async (req: AuthenticatedRequest, res) => 
     }
 
     res.status(200).json({ message: "카테고리 이름이 변경되었습니다." });
-
   } catch (error: any) {
-    if (error.code === 'ER_DUP_ENTRY') {
+    if (error.code === "ER_DUP_ENTRY") {
       return res.status(409).json({ message: "이미 사용 중인 카테고리 이름입니다." });
     }
     console.error("Error renaming category:", error);
@@ -382,7 +387,6 @@ router.delete("/categories/:categoryId", async (req: AuthenticatedRequest, res) 
 
     await connection.commit();
     res.status(200).json({ message: "카테고리가 삭제되었습니다." });
-
   } catch (error) {
     await connection.rollback();
     console.error("Error deleting category:", error);

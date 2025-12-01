@@ -54,7 +54,7 @@ router.get("/topics", async (req: Request, res: Response) => {
   try {
     connection = await pool.getConnection();
     const [rows] = await connection.query(
-      "SELECT id, display_name, summary, published_at, view_count FROM tn_topic WHERE status = 'OPEN' AND topic_type = 'VOTING' ORDER BY published_at DESC"
+      "SELECT id, display_name, summary, published_at, view_count, vote_end_at FROM tn_topic WHERE status = 'OPEN' AND topic_type = 'VOTING' ORDER BY published_at DESC"
     );
     res.json(rows);
   } catch (error) {
@@ -86,6 +86,7 @@ router.get("/topics/popular-ranking", async (req: Request, res: Response) => {
         t.summary,
         t.published_at,
         t.view_count,
+        t.vote_end_at,
         (t.vote_count_left + t.vote_count_right) AS total_votes,
         COALESCE(c.comment_count, 0) AS comment_count,
         -- Popularity Score: Votes + (Comments * 10) + Views
@@ -127,7 +128,7 @@ router.get("/topics/popular-ranking", async (req: Request, res: Response) => {
 router.get("/topics/latest", async (req: Request, res: Response) => {
   try {
     const [rows] = await pool.query(
-      `SELECT id, display_name, summary, published_at, view_count
+      `SELECT id, display_name, summary, published_at, view_count, vote_end_at
        FROM tn_topic 
        WHERE status = 'OPEN' AND topic_type = 'VOTING'
        ORDER BY published_at DESC
@@ -161,6 +162,7 @@ router.get("/topics/popular-all", async (req: Request, res: Response) => {
         t.summary,
         t.published_at,
         t.view_count,
+        t.vote_end_at,
         (t.vote_count_left + t.vote_count_right) AS total_votes,
         COALESCE(c.comment_count, 0) AS comment_count,
         -- Popularity Score: Votes + (Comments * 10) + Views
@@ -434,7 +436,20 @@ router.get("/search", optionalAuthenticateUser, async (req: AuthenticatedRequest
   const searchQuery = `%${query}%`;
 
   try {
-    const [rows] = await pool.query(
+    // 1. 관련 ROUND2 토픽 검색
+    const [topicRows]: any = await pool.query(
+      `SELECT id, display_name, published_at, vote_end_at, stance_left, stance_right, (vote_count_left + vote_count_right) AS total_votes
+       FROM tn_topic
+       WHERE status IN ('OPEN', 'CLOSED')
+         AND topic_type = 'VOTING'
+         AND display_name LIKE ?
+       ORDER BY published_at DESC
+       LIMIT 5`,
+      [searchQuery]
+    );
+
+    // 2. 기사 검색
+    const [articleRows] = await pool.query(
       `SELECT a.*
        FROM tn_home_article a
        WHERE (a.title LIKE ? OR a.description LIKE ?)
@@ -442,11 +457,17 @@ router.get("/search", optionalAuthenticateUser, async (req: AuthenticatedRequest
        LIMIT 50`,
       [searchQuery, searchQuery]
     );
-    const articlesWithFavicon = (rows as any[]).map((article) => ({
+
+    const articlesWithFavicon = (articleRows as any[]).map((article) => ({
       ...article,
       favicon_url: FAVICON_URLS[article.source_domain] || null,
     }));
-    res.json(articlesWithFavicon);
+
+    // 3. 응답 구조 변경
+    res.json({
+      relatedTopics: topicRows,
+      articles: articlesWithFavicon,
+    });
   } catch (error) {
     console.error("Error searching articles:", error);
     res.status(500).json({ message: "Server error" });

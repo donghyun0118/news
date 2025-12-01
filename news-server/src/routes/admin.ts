@@ -941,7 +941,7 @@ router.get("/topics/sidebar", async (req: Request, res: Response) => {
  *   get:
  *     tags: [Admin]
  *     summary: 모든 콘텐츠 토픽 목록을 페이지네이션으로 조회
- *     description: 모든 상태의 콘텐츠 토픽(topic_type = 'CONTENT') 목록을 최신순으로 조회합니다.
+ *     description: "모든 투표 토픽(topic_type = 'VOTING') 목록을 페이지네이션으로 조회합니다. `status` 쿼리 파라미터('OPEN', 'PREPARING', 'CLOSED')를 통해 특정 상태의 토픽만 필터링할 수 있습니다."
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -1045,7 +1045,7 @@ router.get("/topics", async (req: Request, res: Response) => {
  * /api/admin/topics:
  *   post:
  *     tags: [Admin]
- *     summary: 관리자가 직접 새 토픽을 생성하고 즉시 발행
+ *     summary: 관리자가 새 토픽을 생성하고 기사 수집 시작
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -1054,32 +1054,41 @@ router.get("/topics", async (req: Request, res: Response) => {
  *         application/json:
  *           schema:
  *             type: object
- *             required: [displayName, searchKeywords]
+ *             required: [displayName, embeddingKeywords]
  *             properties:
  *               displayName:
  *                 type: string
  *                 example: "새로운 토픽"
- *               searchKeywords:
+ *               embeddingKeywords:
  *                 type: string
+ *                 description: "임베딩 및 기사 수집에 사용될 키워드 (쉼표로 구분)"
  *                 example: "키워드1,키워드2"
  *               summary:
  *                 type: string
  *                 example: "이 토픽에 대한 요약입니다."
+ *               stanceLeft:
+ *                 type: string
+ *                 description: "토픽의 좌측 주장 요약"
+ *                 example: "좌측 주장 요약"
+ *               stanceRight:
+ *                 type: string
+ *                 description: "토픽의 우측 주장 요약"
+ *                 example: "우측 주장 요약"
  *     responses:
  *       201:
- *         description: 토픽 생성 및 발행 성공
+ *         description: 토픽 생성 성공 및 기사 수집 시작
  */
 router.post("/topics", async (req: Request, res: Response) => {
-  const { displayName, searchKeywords, summary, stanceLeft, stanceRight } = req.body;
+  const { displayName, embeddingKeywords, summary, stanceLeft, stanceRight } = req.body;
 
-  if (!displayName || !searchKeywords) {
-    return res.status(400).json({ message: "Display name and search keywords are required." });
+  if (!displayName || !embeddingKeywords) {
+    return res.status(400).json({ message: "Display name and embedding keywords are required." });
   }
 
   try {
     const [result]: any = await pool.query(
       "INSERT INTO tn_topic (display_name, embedding_keywords, summary, stance_left, stance_right, status, topic_type, collection_status) VALUES (?, ?, ?, ?, ?, 'PREPARING', 'VOTING', 'pending')",
-      [displayName, searchKeywords, summary || "", stanceLeft || "", stanceRight || ""]
+      [displayName, embeddingKeywords, summary || "", stanceLeft || "", stanceRight || ""]
     );
     const newTopicId = result.insertId;
 

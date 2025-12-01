@@ -94,12 +94,7 @@ router.get("/by-category", optionalAuthenticateUser, async (req: AuthenticatedRe
  *     summary: 기사 저장
  *     description: |
  *       로그인한 사용자가 특정 기사를 내 마이페이지에 저장합니다.
- *       - **DB Schema:** `tn_user_saved_articles`
- *       - `id`: (PK) 저장된 기사 고유 ID
- *       - `user_id`: (FK) 사용자 ID
- *       - `article_id`: (FK) 기사 ID
- *       - `category_id`: (FK, nullable) 사용자가 지정한 카테고리 ID
- *       - `created_at`: 저장한 시각
+ *       저장 시 `article_id`는 항상 `tn_home_article`의 id를 기준으로 통일하여 저장합니다.
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -108,26 +103,24 @@ router.get("/by-category", optionalAuthenticateUser, async (req: AuthenticatedRe
  *         required: true
  *         schema:
  *           type: integer
+ *         description: "저장할 기사의 ID ('topic' 또는 'home' 기사)"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [articleType]
+ *             properties:
+ *               articleType:
+ *                 type: string
+ *                 enum: [home, topic]
+ *                 description: "저장할 기사의 종류. 토픽에 소속된 기사는 'topic', 일반 기사는 'home'"
  *     responses:
  *       201:
- *         description: "기사 저장 성공. 생성된 savedArticleId를 포함한 정보를 반환합니다."
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Article saved successfully."
- *                 data:
- *                   type: object
- *                   properties:
- *                     savedArticleId:
- *                       type: integer
- *                     userId:
- *                       type: integer
- *                     articleId:
- *                       type: integer
+ *         description: "기사 저장 성공"
+ *       400:
+ *         description: "잘못된 articleType"
  *       404:
  *         description: "기사를 찾을 수 없음"
  *       409:
@@ -136,35 +129,75 @@ router.get("/by-category", optionalAuthenticateUser, async (req: AuthenticatedRe
 router.post("/:articleId/save", authenticateUser, async (req: AuthenticatedRequest, res: Response) => {
   const articleId = req.params.articleId;
   const userId = req.user?.userId;
+  const { articleType } = req.body; // 'home' or 'topic'
+
+  if (!articleType || !['home', 'topic'].includes(articleType)) {
+    return res.status(400).json({ message: "articleType ('home' or 'topic') is required." });
+  }
 
   const connection = await pool.getConnection();
   try {
-    // 1. 기사 존재 여부 확인
-    const [articleRows]: any = await connection.query("SELECT id FROM tn_article WHERE id = ?", [articleId]);
-    if (articleRows.length === 0) {
-      return res.status(404).json({ message: "Article not found." });
+    await connection.beginTransaction();
+    let homeArticleId: number | null = null;
+
+    if (articleType === 'home') {
+      const [articleRows]: any = await connection.query("SELECT id FROM tn_home_article WHERE id = ?", [articleId]);
+      if (articleRows.length === 0) {
+        await connection.rollback();
+        return res.status(404).json({ message: "Article not found in tn_home_article." });
+      }
+      homeArticleId = parseInt(articleId, 10);
+    } else { // articleType === 'topic'
+      const [articleRows]: any = await connection.query("SELECT url FROM tn_article WHERE id = ?", [articleId]);
+      if (articleRows.length === 0) {
+        await connection.rollback();
+        return res.status(404).json({ message: "Article not found in tn_article." });
+      }
+      const articleUrl = articleRows[0].url;
+
+      const [homeArticleRows]: any = await connection.query("SELECT id FROM tn_home_article WHERE url = ?", [articleUrl]);
+      if (homeArticleRows.length === 0) {
+        await connection.rollback();
+        return res.status(404).json({ message: "Corresponding article not found in tn_home_article." });
+      }
+      homeArticleId = homeArticleRows[0].id;
     }
 
-    // 2. 기사 저장 (INSERT IGNORE로 중복 방지)
+    if (homeArticleId === null) {
+        await connection.rollback();
+        return res.status(500).json({ message: "Could not determine the article ID to save." });
+    }
+    
     const [result]: any = await connection.query(
       "INSERT IGNORE INTO tn_user_saved_articles (user_id, article_id) VALUES (?, ?)",
-      [userId, articleId]
+      [userId, homeArticleId]
     );
 
     if (result.affectedRows === 0) {
-      return res.status(409).json({ message: "Article already saved." });
+      const [existing]: any = await connection.query(
+        "SELECT id FROM tn_user_saved_articles WHERE user_id = ? AND article_id = ?",
+        [userId, homeArticleId]
+      );
+      await connection.rollback();
+      return res.status(409).json({ 
+          message: "Article already saved.",
+          data: {
+              savedArticleId: existing.length > 0 ? existing[0].id : null
+          }
+      });
     }
 
-    // 3. 생성된 데이터 정보와 함께 201 응답 반환
+    await connection.commit();
     res.status(201).json({
       message: "Article saved successfully.",
       data: {
         savedArticleId: result.insertId,
         userId,
-        articleId: parseInt(articleId, 10),
+        articleId: homeArticleId,
       },
     });
   } catch (error) {
+    await connection.rollback();
     console.error("Error saving article:", error);
     res.status(500).json({ message: "Server error" });
   } finally {
@@ -181,12 +214,6 @@ router.post("/:articleId/save", authenticateUser, async (req: AuthenticatedReque
  *     summary: 기사 저장 취소
  *     description: |
  *       로그인한 사용자가 마이페이지에 저장했던 기사를 삭제합니다.
- *       - **DB Schema:** `tn_user_saved_articles`
- *       - `id`: (PK) 저장된 기사 고유 ID
- *       - `user_id`: (FK) 사용자 ID
- *       - `article_id`: (FK) 기사 ID
- *       - `category_id`: (FK, nullable) 사용자가 지정한 카테고리 ID
- *       - `created_at`: 저장한 시각
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -195,30 +222,70 @@ router.post("/:articleId/save", authenticateUser, async (req: AuthenticatedReque
  *         required: true
  *         schema:
  *           type: integer
+ *         description: "저장 취소할 기사의 ID ('topic' 또는 'home' 기사)"
+ *       - in: query
+ *         name: articleType
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [home, topic]
+ *         description: "저장 취소할 기사의 종류. 'home' 또는 'topic'"
  *     responses:
  *       200:
  *         description: "기사 저장 취소 성공"
+ *       400:
+ *         description: "잘못된 articleType"
  *       404:
  *         description: "저장된 기사를 찾을 수 없음"
  */
 router.delete("/:articleId/save", authenticateUser, async (req: AuthenticatedRequest, res: Response) => {
   const articleId = req.params.articleId;
   const userId = req.user?.userId;
+  const { articleType } = req.query; // 'home' or 'topic' from query string
 
+  if (!articleType || (articleType !== 'home' && articleType !== 'topic')) {
+      return res.status(400).json({ message: "A valid articleType ('home' or 'topic') is required as a query parameter." });
+  }
+
+  const connection = await pool.getConnection();
   try {
-    const [result]: any = await pool.query("DELETE FROM tn_user_saved_articles WHERE user_id = ? AND article_id = ?", [
-      userId,
-      articleId,
-    ]);
+      let homeArticleId: number | null = null;
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Saved article not found." });
-    }
+      if (articleType === 'home') {
+          homeArticleId = parseInt(articleId, 10);
+      } else { // articleType === 'topic'
+          const [articleRows]: any = await connection.query("SELECT url FROM tn_article WHERE id = ?", [articleId]);
+          if (articleRows.length === 0) {
+              return res.status(404).json({ message: "Original topic article not found, cannot determine which article to unsave." });
+          }
+          const articleUrl = articleRows[0].url;
 
-    res.status(200).json({ message: "Article unsaved successfully." });
+          const [homeArticleRows]: any = await connection.query("SELECT id FROM tn_home_article WHERE url = ?", [articleUrl]);
+          if (homeArticleRows.length === 0) {
+               return res.status(404).json({ message: "Corresponding home article not found, cannot unsave." });
+          }
+          homeArticleId = homeArticleRows[0].id;
+      }
+      
+      if (homeArticleId === null) {
+           return res.status(500).json({ message: "Could not determine the article ID to unsave." });
+      }
+
+      const [result]: any = await connection.query("DELETE FROM tn_user_saved_articles WHERE user_id = ? AND article_id = ?", [
+          userId,
+          homeArticleId,
+      ]);
+
+      if (result.affectedRows === 0) {
+          return res.status(404).json({ message: "Saved article not found." });
+      }
+
+      res.status(200).json({ message: "Article unsaved successfully." });
   } catch (error) {
-    console.error("Error unsaving article:", error);
-    res.status(500).json({ message: "Server error" });
+      console.error("Error unsaving article:", error);
+      res.status(500).json({ message: "Server error" });
+  } finally {
+      connection.release();
   }
 });
 
