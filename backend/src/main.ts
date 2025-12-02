@@ -14,8 +14,8 @@ async function bootstrap() {
 
   // Swagger 문서 설정
   const config = new DocumentBuilder()
-    .setTitle('Different News API (Nest.js)')
-    .setDescription('Nest.js로 마이그레이션 중인 API 명세입니다.')
+    .setTitle('Newsround1 API (Nest.js)')
+    .setDescription('Nest.js로 마이그레이션 된 API 명세입니다.')
     .setVersion('1.0')
     .addTag('App', 'health 체크 API')
     .addTag('Auth', '사용자 인증 API')

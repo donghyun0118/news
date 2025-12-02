@@ -225,7 +225,7 @@ export class AdminTopicsService {
       return {
         message:
           'AI 수집 기능이 비활성화되어 있습니다. 로컬에서 vector_indexer.py를 실행하세요.',
-        command: `python news-data/vector_indexer.py --topic_id ${topicId}`,
+        command: `python scripts/vector_indexer.py --topic_id ${topicId}`,
       };
     }
 
@@ -426,19 +426,19 @@ export class AdminTopicsService {
     const pythonPath =
       this.configService.get<string>('PYTHON_EXECUTABLE_PATH') || 'python3';
 
-    // Assuming news-data is a sibling of news-server-nest
+    // Assuming scripts is in backend/scripts
     // Current: src/admin/topics/admin-topics.service.ts
-    // Root: news-server-nest
-    // Script: ../news-data/script.py
+    // Root: backend
+    // Script: scripts/script.py
 
     // We need to resolve the path relative to the project root.
     // However, in production/build, the structure might differ.
-    // Let's assume we run from project root and news-data is at ../news-data
+    // Let's assume we run from project root and scripts is at ./scripts
 
     // Better approach: Use absolute path if possible or relative to process.cwd()
-    // If process.cwd() is news-server-nest, then news-data is ../news-data
+    // If process.cwd() is backend, then scripts is ./scripts
 
-    const scriptPath = path.resolve(process.cwd(), '../news-data', scriptName);
+    const scriptPath = path.resolve(process.cwd(), 'scripts', scriptName);
 
     this.logger.log(
       `Executing Python script: ${pythonPath} ${scriptPath} ${args.join(' ')}`,

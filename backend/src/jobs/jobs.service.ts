@@ -53,7 +53,7 @@ export class JobsService {
 
     this.isCollectorRunning = true;
     this.runPythonJob(
-      ['news-data', 'home_article_collector.py'],
+      ['scripts', 'rss_collector.py'],
       'article collection',
       () => {
         this.isCollectorRunning = false;
@@ -73,7 +73,7 @@ export class JobsService {
 
     this.isPopularityJobRunning = true;
     this.runPythonJob(
-      ['news-data', 'popularity_calculator.py'],
+      ['scripts', 'popularity_calculator.py'],
       'popularity calculation',
       () => {
         this.isPopularityJobRunning = false;
@@ -93,7 +93,7 @@ export class JobsService {
 
     this.isPruningJobRunning = true;
     this.runPythonJob(
-      ['news-data', 'home_article_pruner.py'],
+      ['scripts', 'home_article_pruner.py'],
       'home article pruning',
       () => {
         this.isPruningJobRunning = false;
@@ -109,7 +109,7 @@ export class JobsService {
     // The user's python script `daily_vectorizer.py` seems to have a lock file mechanism based on previous logs.
 
     this.runPythonJob(
-      ['news-data', 'daily_vectorizer.py'],
+      ['scripts', 'daily_vectorizer.py'],
       'vector indexer',
       () => {
         // callback
@@ -124,7 +124,7 @@ export class JobsService {
     // We can run `run_pipeline.py` if it exists, or chain them.
     // The user mentioned `run_pipeline.py` in the logs.
 
-    this.runPythonJob(['news-data', 'run_pipeline.py'], 'full pipeline', () => {
+    this.runPythonJob(['scripts', 'run_pipeline.py'], 'full pipeline', () => {
       // callback
     });
 

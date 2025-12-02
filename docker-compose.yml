@@ -11,7 +11,7 @@ services:
     volumes:
       - ./db/initdb:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -48,8 +48,8 @@ services:
   # Frontend Service (React)
   news-ui:
     build:
-      context: .
-      dockerfile: frontend/Dockerfile
+      context: ./frontend
+      dockerfile: Dockerfile
       # Use a target for development to run dev server
       target: dev
     container_name: news_ui
@@ -61,7 +61,6 @@ services:
       - "5173:5173"
     environment:
       - VITE_API_URL=http://localhost:3002/api
-
 
   # Nginx Reverse Proxy Service
   nginx:

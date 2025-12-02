@@ -19,7 +19,8 @@ RUN npm install
 COPY backend/ ./
 
 # Install Python dependencies for the scripts
-RUN pip install --no-cache-dir -r scripts/requirements.txt
+RUN apk add --no-cache build-base gfortran python3-dev musl-dev && \
+    pip install --no-cache-dir -r scripts/requirements.txt
 
 # Build the NestJS application
 RUN npm run build
