@@ -8,13 +8,13 @@
 
 ### R&R (역할 분담)
 
-- **Backend & DB**: 본인 담당 (Render, TiDB)
+- **Backend & DB & Frontend (Admin)**: 본인 담당 (Render, TiDB)
 - **Frontend (User)**: 인턴 담당 (Vercel)
 
 ### 배포 환경
 
 - **Backend**: [Render](https://render.com/) (Free Tier)
-- **Database**: [TiDB](https://pingcap.com/ai/tidb/) (MySQL Compatible)
+- **Database**: [TiDB](https://pingcap.com/tidb/) (MySQL Compatible)
 - **Frontend (User)**: [Vercel](https://vercel.com/)
 
 ## 📂 프로젝트 구조 및 폴더 설명
