@@ -16,10 +16,11 @@ services:
       timeout: 5s
       retries: 5
 
-  # Backend Service (news-server)
+  # Backend Service (NestJS)
   news-server:
     build:
-      context: ./news-server
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: news_server
     depends_on:
       db:
@@ -31,22 +32,36 @@ services:
       DB_USER: root
       DB_PASSWORD: root
       DB_DATABASE: news
-    # We don't need to expose ports directly to the host anymore
-    # Nginx will handle it.
+      # Add other backend env vars if needed for docker-compose context
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      USER_JWT_SECRET: ${USER_JWT_SECRET}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
+      AWS_REGION: ${AWS_REGION}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_S3_BUCKET_NAME: ${AWS_S3_BUCKET_NAME}
+    ports:
+      - "3002:3002" # Expose backend port for direct local access if needed
 
-  # Frontend Service (news-ui)
+  # Frontend Service (React)
   news-ui:
     build:
-      context: ./news-ui
+      context: .
+      dockerfile: frontend/Dockerfile
       # Use a target for development to run dev server
       target: dev
     container_name: news_ui
     volumes:
       # Mount source code for live-reloading
-      - ./news-ui/src:/app/src
-    # The vite dev server port
+      - ./frontend:/app
+      - /app/node_modules
     ports:
       - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:3002/api
+
 
   # Nginx Reverse Proxy Service
   nginx:
