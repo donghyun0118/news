@@ -1,1 +1,0 @@
-export const DB_CONNECTION_POOL = 'DB_CONNECTION_POOL';
