@@ -11,11 +11,11 @@
 ### R&R (역할 분담)
 
 - **Backend & DB & Frontend (Admin)**: 본인 담당 (Render, TiDB)
-- **Frontend (User)**: 인턴 담당 (Vercel)
+- **Frontend (User)**: 재권님 담당 (Vercel)
 
 ### 배포 환경
 
-- **Backend**: [Render](https://render.com/) (Free Tier)
+- **Backend**: [Render](https://news01.onrender.com) (Free Tier)
 - **Database**: [TiDB](https://pingcap.com/tidb/) (MySQL Compatible)
 - **Frontend (User)**: [Vercel](https://vercel.com/)
 
