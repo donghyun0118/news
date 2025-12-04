@@ -10,50 +10,62 @@ const PHONE_REGEX = /^\d+$/;
 export class SignUpDto {
   @ApiProperty({
     description: '사용자 이메일 주소',
-    example: 'gildong@example.com',
+    example: 'user@example.com',
+    required: true,
   })
   @IsEmail({}, { message: '이메일 형식이 맞지 않습니다.' })
-  email: string;
+  email!: string;
 
   @ApiProperty({
-    description: '로그인에 사용할 비밀번호',
+    description: '로그인에 사용할 비밀번호 (영문+숫자+특수문자 10~16자리)',
     example: 'Password123!',
+    required: true,
   })
   @IsString()
   @Matches(PASSWORD_REGEX, {
     message: '영문+숫자+특수문자 10~16자리로 입력해주세요.',
   })
-  password: string;
+  password!: string;
 
   @ApiProperty({
     description: '비밀번호 확인',
     example: 'Password123!',
+    required: true,
   })
   @IsString()
   @MinLength(1, { message: '비밀번호 확인을 입력해주세요.' })
-  password_confirmation: string;
+  password_confirmation!: string;
 
-  @ApiProperty({ description: '사용자 이름', example: '홍길동' })
+  @ApiProperty({
+    description: '사용자 이름 (2자 이상, 영문/한글)',
+    example: '홍길동',
+    required: true,
+  })
   @IsString()
   @Matches(NAME_REGEX, {
     message: '이름은 2자 이상이며 영문 또는 한글만 입력 가능합니다.',
   })
-  name: string;
+  name!: string;
 
-  @ApiProperty({ description: '사용자 닉네임', example: 'gildong_hong' })
+  @ApiProperty({
+    description: '사용자 닉네임 (3~10자, 영문/한글/숫자)',
+    example: 'news_lover',
+    required: true,
+  })
   @IsString()
   @Matches(NICKNAME_REGEX, {
     message: '닉네임은 3~10자의 영문, 한글, 숫자만 사용할 수 있습니다.',
   })
-  nickname: string;
+  nickname!: string;
 
   @ApiProperty({
-    description: '휴대폰번호 (숫자만)',
+    description: '휴대폰번호 (숫자만 입력)',
     example: '01012345678',
+    required: true,
   })
   @IsString()
   @Matches(PHONE_REGEX, {
     message: '휴대폰번호를 숫자로 입력해주세요.',
   })
-  phone: string;
+  phone!: string;
 }

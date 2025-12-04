@@ -1,5 +1,4 @@
 ﻿import {
-  BadRequestException,
   Body,
   Controller,
   Get,
@@ -20,6 +19,7 @@ import {
 import type { Request } from 'express';
 import { OptionalJwtAuthGuard } from '../auth/optional-jwt.guard';
 
+import { VoteDto } from './dto/vote.dto';
 import { TopicsService } from './topics.service';
 
 interface AuthenticatedRequest extends Request {
@@ -126,11 +126,8 @@ export class TopicsController {
   async castStanceVote(
     @Req() req: AuthenticatedRequest,
     @Param('topicId', ParseIntPipe) topicId: number,
-    @Body() body: { side: 'LEFT' | 'RIGHT' },
+    @Body() body: VoteDto,
   ) {
-    if (!['LEFT', 'RIGHT'].includes(body.side)) {
-      throw new BadRequestException('Invalid vote side.');
-    }
     return this.topicsService.castStanceVote(
       topicId,
       req.user!.userId,
